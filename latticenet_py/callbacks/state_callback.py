@@ -8,12 +8,14 @@ class StateCallback(Callback):
     def __init__(self):
         pass
 
-    def after_forward_pass(self, phase, loss, pred_softmax, target, cloud, **kwargs):
+    def after_forward_pass(self, phase, loss, pred_softmax, target, cloud=None, **kwargs):
         phase.iter_nr+=1
         phase.samples_processed_this_epoch+=1
         phase.loss_acum_per_epoch+=loss
-
-        phase.scores.accumulate_scores(pred_softmax, target, cloud.m_label_mngr.get_idx_unlabeled() )
+        if cloud is not None:
+            phase.scores.accumulate_scores(pred_softmax, target, cloud.m_label_mngr.get_idx_unlabeled() )
+        else:
+            phase.scores.accumulate_scores(pred_softmax, target, 0 )
 
     def epoch_started(self, phase, **kwargs):
         phase.loss_acum_per_epoch=0.0
@@ -39,7 +41,7 @@ class StateCallback(Callback):
                 out_info_path=os.path.join(checkpoint_path, info_txt_name)
                 torch.save(model.state_dict(), out_model_path)
                 phase.scores.write_iou_to_csv(out_info_path)
-        
+
 
         phase.epoch_nr+=1
 
@@ -49,7 +51,7 @@ class StateCallback(Callback):
     def phase_ended(self, phase, **kwargs):
         # phase.loader.reset()
 
-        if(type(phase.loader) == torch.utils.data.DataLoader): # pytorchs dataloder has no reset 
+        if(type(phase.loader) == torch.utils.data.DataLoader): # pytorchs dataloder has no reset
             pass
         else:
             phase.loader.reset()

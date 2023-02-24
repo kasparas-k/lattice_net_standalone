@@ -15,58 +15,6 @@ from functools import reduce
 from torch.nn.modules.module import _addindent
 
 
-def prepare_cloud(cloud, model_params):
-       
-
-    with torch.set_grad_enabled(False):
-
-        if model_params.positions_mode()=="xyz":
-            positions_tensor=torch.from_numpy(cloud.V.copy() ).float().to("cuda")
-        elif model_params.positions_mode()=="xyz+rgb":
-            xyz_tensor=torch.from_numpy(cloud.V.copy() ).float().to("cuda")
-            rgb_tensor=torch.from_numpy(cloud.C.copy() ).float().to("cuda")
-            positions_tensor=torch.cat((xyz_tensor,rgb_tensor),1)
-        elif model_params.positions_mode()=="xyz+intensity":
-            xyz_tensor=torch.from_numpy(cloud.V.copy() ).float().to("cuda")
-            intensity_tensor=torch.from_numpy(cloud.I.copy() ).float().to("cuda")
-            positions_tensor=torch.cat((xyz_tensor,intensity_tensor),1)
-        else:
-            err="positions mode of ", model_params.positions_mode() , " not implemented"
-            sys.exit(err)
-
-
-        if model_params.values_mode()=="none":
-            values_tensor=torch.zeros(positions_tensor.shape[0], 1).to("cuda") #not really necessary but at the moment I have no way of passing an empty value array
-        elif model_params.values_mode()=="intensity":
-            values_tensor=torch.from_numpy(cloud.I.copy() ).float().to("cuda")
-        elif model_params.values_mode()=="rgb":
-            values_tensor=torch.from_numpy(cloud.C.copy() ).float().to("cuda")
-        elif model_params.values_mode()=="rgb+height":
-            rgb_tensor=torch.from_numpy(cloud.C).float().to("cuda")
-            height_tensor=torch.from_numpy(cloud.V[:,1].copy() ).unsqueeze(1).float().to("cuda")
-            values_tensor=torch.cat((rgb_tensor,height_tensor),1)
-        elif model_params.values_mode()=="rgb+xyz":
-            rgb_tensor=torch.from_numpy(cloud.C.copy() ).float().to("cuda")
-            xyz_tensor=torch.from_numpy(cloud.V.copy() ).float().to("cuda")
-            values_tensor=torch.cat((rgb_tensor,xyz_tensor),1)
-        elif model_params.values_mode()=="height":
-            height_tensor=torch.from_numpy(cloud.V[:,1].copy() ).unsqueeze(1).float().to("cuda")
-            values_tensor=height_tensor
-        elif model_params.values_mode()=="xyz":
-            xyz_tensor=torch.from_numpy(cloud.V.copy() ).float().to("cuda")
-            values_tensor=xyz_tensor
-        else:
-            err="values mode of ", model_params.values_mode() , " not implemented"
-            sys.exit(err)
-
-
-        target=cloud.L_gt
-        target_tensor=torch.from_numpy(target.copy() ).long().squeeze(1).to("cuda").squeeze(0)
-
-    return positions_tensor, values_tensor, target_tensor
-
-
-
 class LNN(torch.nn.Module):
     def __init__(self, nr_classes, model_params):
         super(LNN, self).__init__()
@@ -74,33 +22,22 @@ class LNN(torch.nn.Module):
 
         #a bit more control
         self.model_params=model_params
-        self.nr_downsamples=model_params.nr_downsamples()
-        self.nr_blocks_down_stage=model_params.nr_blocks_down_stage()
-        self.nr_blocks_bottleneck=model_params.nr_blocks_bottleneck()
-        self.nr_blocks_up_stage=model_params.nr_blocks_up_stage()
-        self.nr_levels_down_with_normal_resnet=model_params.nr_levels_down_with_normal_resnet()
-        self.nr_levels_up_with_normal_resnet=model_params.nr_levels_up_with_normal_resnet()
-        compression_factor=model_params.compression_factor()
-        dropout_last_layer=model_params.dropout_last_layer()
-        # experiment=model_params.experiment()
-        #check that the experiment has a valid string
-        # valid_experiment=["none", "slice_no_deform", "pointnet_no_elevate", "pointnet_no_local_mean", "pointnet_no_elevate_no_local_mean", "splat", "attention_pool"]
-        # if experiment not in valid_experiment:
-            # err = "Experiment " + experiment + " is not valid"
-            # sys.exit(err)
+        self.nr_downsamples=model_params['nr_downsamples']
+        self.nr_blocks_down_stage=model_params['nr_blocks_down_stage']
+        self.nr_blocks_bottleneck=model_params['nr_blocks_bottleneck']
+        self.nr_blocks_up_stage=model_params['nr_blocks_up_stage']
+        self.nr_levels_down_with_normal_resnet=model_params['nr_levels_down_with_normal_resnet']
+        self.nr_levels_up_with_normal_resnet=model_params['nr_levels_up_with_normal_resnet']
+        compression_factor=model_params['compression_factor']
+        dropout_last_layer=model_params['dropout_last_layer']
 
-
-
-
-
-        self.distribute=DistributeLatticeModule() 
-        self.pointnet_channels_per_layer=model_params.pointnet_channels_per_layer()
-        self.start_nr_filters=model_params.pointnet_start_nr_channels()
+        self.distribute=DistributeLatticeModule()
+        self.pointnet_channels_per_layer=model_params['pointnet_channels_per_layer']
+        self.start_nr_filters=model_params['pointnet_start_nr_channels']
         print("pointnt_channels_per_layer is ", self.pointnet_channels_per_layer)
-        self.point_net=PointNetModule( self.pointnet_channels_per_layer, self.start_nr_filters)  
+        self.point_net=PointNetModule( self.pointnet_channels_per_layer, self.start_nr_filters)
 
         experiment="none"
-
 
         #####################
         # Downsampling path #
@@ -112,7 +49,7 @@ class LNN(torch.nn.Module):
         skip_connection_channel_counts = []
         cur_channels_count=self.start_nr_filters
         for i in range(self.nr_downsamples):
-            
+
             #create the resnet blocks
             self.resnet_blocks_per_down_lvl_list.append( torch.nn.ModuleList([]) )
             for j in range(self.nr_blocks_down_stage[i]):
@@ -172,20 +109,19 @@ class LNN(torch.nn.Module):
             for j in range(self.nr_blocks_up_stage[i]):
                 is_last_conv=j==self.nr_blocks_up_stage[i]-1 and i==self.nr_downsamples-1 #the last conv of the last upsample is followed by a slice and not a bn, therefore we need a bias
                 if i>=self.nr_downsamples-self.nr_levels_up_with_normal_resnet:
-                    print("adding up_resnet_block with nr of filters", cur_channels_count ) 
+                    print("adding up_resnet_block with nr of filters", cur_channels_count )
                     self.resnet_blocks_per_up_lvl_list[i].append( ResnetBlock(cur_channels_count, cur_channels_count,  [1,1], [False,is_last_conv], False) )
                     # self.resnet_blocks_per_up_lvl_list[i].append( ResnetBlock2(cur_channels_count, cur_channels_count,  [1,1], [True,True], False) )
                 else:
-                    print("adding up_bottleneck_block with nr of filters", cur_channels_count ) 
+                    print("adding up_bottleneck_block with nr of filters", cur_channels_count )
                     self.resnet_blocks_per_up_lvl_list[i].append( BottleneckBlock(cur_channels_count, cur_channels_count, [False,False,is_last_conv] ) )
                     # self.resnet_blocks_per_up_lvl_list[i].append( ResnetBlock2(cur_channels_count, cur_channels_count,  [1,1], [True,True], False) )
 
         self.slice_fast_cuda=SliceFastCUDALatticeModule(in_channels=cur_channels_count, nr_classes=nr_classes, dropout_prob=dropout_last_layer, experiment=experiment)
         # self.slice=SliceLatticeModule()
         # self.classify=Conv1x1(out_channels=nr_classes, bias=True)
-       
-        self.logsoftmax=torch.nn.LogSoftmax(dim=1)
 
+        self.logsoftmax=torch.nn.LogSoftmax(dim=1)
 
         if experiment!="none":
             warn="USING EXPERIMENT " + experiment
@@ -201,7 +137,7 @@ class LNN(torch.nn.Module):
         lv, ls=self.point_net(ls, distributed, indices)
 
 
-        
+
         fine_structures_list=[]
         fine_values_list=[]
         # TIME_START("down_path")
@@ -210,10 +146,10 @@ class LNN(torch.nn.Module):
             #resnet blocks
             for j in range(self.nr_blocks_down_stage[i]):
                 # print("start downsample stage ", i , " resnet block ", j, "lv has shape", lv.shape, " ls has val dim", ls.val_dim() )
-                lv, ls = self.resnet_blocks_per_down_lvl_list[i][j] ( lv, ls) 
+                lv, ls = self.resnet_blocks_per_down_lvl_list[i][j] ( lv, ls)
 
             #saving them for when we do finefy so we can concat them there
-            fine_structures_list.append(ls) 
+            fine_structures_list.append(ls)
             fine_values_list.append(lv)
 
             #now we do a downsample
@@ -226,7 +162,7 @@ class LNN(torch.nn.Module):
         # #bottleneck
         for j in range(self.nr_blocks_bottleneck):
             # print("bottleneck stage", j,  "lv has shape", lv.shape, "ls has val_dim", ls.val_dim()  )
-            lv, ls = self.resnet_blocks_bottleneck[j] ( lv, ls) 
+            lv, ls = self.resnet_blocks_bottleneck[j] ( lv, ls)
 
 
         #upsample (we start from the bottom of the U-net, so the upsampling that is closest to the blottlenck)
@@ -242,7 +178,7 @@ class LNN(torch.nn.Module):
             lv, ls = self.finefy_list[i] ( lv, ls, fine_structure  )
 
             #concat or adding for the vertical connection
-            if self.do_concat_for_vertical_connection: 
+            if self.do_concat_for_vertical_connection:
                 lv=torch.cat((lv, fine_values ),1)
             else:
                 lv+=fine_values
@@ -250,7 +186,7 @@ class LNN(torch.nn.Module):
             #resnet blocks
             for j in range(self.nr_blocks_up_stage[i]):
                 # print("start resnet block in upstage", i, "lv has shape", lv.shape, "ls has val dim" , ls.val_dim() )
-                lv, ls = self.resnet_blocks_per_up_lvl_list[i][j] ( lv, ls) 
+                lv, ls = self.resnet_blocks_per_up_lvl_list[i][j] ( lv, ls)
         # TIME_END("up_path")
 
 
@@ -268,7 +204,7 @@ class LNN(torch.nn.Module):
 
 
 
-    #like in here https://github.com/drethage/fully-convolutional-point-network/blob/60b36e76c3f0cc0512216e9a54ef869dbc8067ac/data.py 
+    #like in here https://github.com/drethage/fully-convolutional-point-network/blob/60b36e76c3f0cc0512216e9a54ef869dbc8067ac/data.py
     #also the Enet paper seems to have a similar weighting
     def compute_class_weights(self, class_frequencies, background_idx):
         """ Computes class weights based on the inverse logarithm of a normalized frequency of class occurences.
@@ -293,7 +229,7 @@ class LNN(torch.nn.Module):
 
         return class_weights
 
-    
+
         #https://github.com/pytorch/pytorch/issues/2001
     def summary(self,file=sys.stderr):
         def repr(model):
@@ -350,5 +286,3 @@ class LNN(torch.nn.Module):
         if file is not None:
             print(string, file=file)
         return count
-
-

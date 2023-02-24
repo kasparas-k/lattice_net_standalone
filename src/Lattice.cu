@@ -3,7 +3,7 @@
 //c++
 #include <string>
 
-#include "UtilsPytorch.h" //contains torch so it has to be added BEFORE any other include because the other ones might include loguru which gets screwed up if torch was included before it
+#include "EasyPytorch/UtilsPytorch.h" //contains torch so it has to be added BEFORE any other include because the other ones might include loguru which gets screwed up if torch was included before it
 #include "EasyCuda/UtilsCuda.h"
 #include "string_utils.h"
 
@@ -20,16 +20,16 @@
 
 //loguru
 #define LOGURU_REPLACE_GLOG 1
-#include <loguru.hpp> //needs to be added after torch.h otherwise loguru stops printing for some reason
+#include "loguru/loguru.hpp" //needs to be added after torch.h otherwise loguru stops printing for some reason
 
 //configuru
 #define CONFIGURU_WITH_EIGEN 1
 #define CONFIGURU_IMPLICIT_CONVERSIONS 1
-#include <configuru.hpp>
+#include "configuru/configuru.hpp"
 using namespace configuru;
 //Add this header after we add all cuda stuff because we need the profiler to have cudaDeviceSyncronize defined
 #define ENABLE_CUDA_PROFILING 1
-#include "Profiler.h" 
+#include "Profiler.h"
 
 //boost
 #include <boost/filesystem.hpp>
@@ -87,7 +87,7 @@ Lattice::Lattice(Lattice* other):
         m_positions=other->m_positions; //shallow copy
         //hashtable
         m_hash_table=std::make_shared<HashTable>(other->hash_table()->capacity() );
-        // m_hash_table->m_capacity=other->m_hash_table_capacity; 
+        // m_hash_table->m_capacity=other->m_hash_table_capacity;
         // m_hash_table->m_pos_dim=other->m_pos_dim;
         //hashtable tensors shallow copy (just a pointer assignemtn so they use the same data in memory)
         m_hash_table->m_keys_tensor=other->m_hash_table->m_keys_tensor;
@@ -183,9 +183,9 @@ void Lattice::check_positions_and_values(const torch::Tensor& positions_raw, con
 
 
 void Lattice::begin_splat(const bool reset_hashmap ){
-    // m_hash_table->clear(); 
+    // m_hash_table->clear();
     if(reset_hashmap)   {
-        m_hash_table->clear(); 
+        m_hash_table->clear();
     }else {
         m_hash_table->clear_only_values();
     }
@@ -227,17 +227,17 @@ std::tuple<torch::Tensor, torch::Tensor> Lattice::splat_standalone(torch::Tensor
     TIME_END("scale_by_sigma");
 
     TIME_START("splat");
-    m_impl->splat_standalone(positions.data_ptr<float>(), values.data_ptr<float>(), nr_positions, pos_dim, val_dim, 
+    m_impl->splat_standalone(positions.data_ptr<float>(), values.data_ptr<float>(), nr_positions, pos_dim, val_dim,
                             splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(),  *(m_hash_table->m_impl) );
     m_hash_table->m_nr_filled_is_dirty=true;
 
-    
+
     TIME_END("splat");
 
     // VLOG(3) << "after splatting nr_verts is " << nr_lattice_vertices();
-    auto ret = std::make_tuple (splatting_indices_tensor, splatting_weights_tensor ); 
+    auto ret = std::make_tuple (splatting_indices_tensor, splatting_weights_tensor );
     return ret;
-  
+
 }
 
 
@@ -270,23 +270,23 @@ std::tuple<torch::Tensor, torch::Tensor> Lattice::just_create_verts(torch::Tenso
     Tensor positions=positions_raw/m_sigmas_tensor;
 
     if (return_indices_and_weights){
-        m_impl->just_create_verts(positions.data_ptr<float>(), nr_positions, this->pos_dim(), this->val_dim(), 
+        m_impl->just_create_verts(positions.data_ptr<float>(), nr_positions, this->pos_dim(), this->val_dim(),
                                 return_indices_and_weights,
                                 splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(), *(m_hash_table->m_impl) );
-    }else{ 
-        m_impl->just_create_verts(positions.data_ptr<float>(), nr_positions, this->pos_dim(), this->val_dim(), 
+    }else{
+        m_impl->just_create_verts(positions.data_ptr<float>(), nr_positions, this->pos_dim(), this->val_dim(),
                                 return_indices_and_weights,
                                 nullptr, nullptr, *(m_hash_table->m_impl) );
     }
-    
+
     m_hash_table->m_nr_filled_is_dirty=true;
 
 
     // VLOG(3) << "after just_create_verts nr_verts is " << nr_lattice_vertices();
 
-    auto ret = std::make_tuple (splatting_indices_tensor, splatting_weights_tensor ); 
+    auto ret = std::make_tuple (splatting_indices_tensor, splatting_weights_tensor );
     return ret;
-  
+
 }
 
 std::shared_ptr<Lattice> Lattice::expand(torch::Tensor& positions_raw, const int point_multiplier, const float noise_stddev, const bool expand_values ){
@@ -306,7 +306,7 @@ std::shared_ptr<Lattice> Lattice::expand(torch::Tensor& positions_raw, const int
     //expand the positopns
     Tensor positions_expanded=positions_raw.repeat({point_multiplier, 1});
 
-    //noise 
+    //noise
     Tensor noise = torch::randn({ positions_expanded.size(0), positions_expanded.size(1) }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
     noise=noise*noise_stddev;
     positions_expanded+=noise;
@@ -357,7 +357,7 @@ std::tuple<std::shared_ptr<Lattice>, torch::Tensor, torch::Tensor, torch::Tensor
     m_positions=positions_raw; //raw positions which created this lattice
 
 
-    
+
     //if it's not initialized to the correct values we intialize the hashtable
     if(!m_hash_table->m_keys_tensor.defined()){
         m_hash_table->init(pos_dim, val_dim);
@@ -381,11 +381,11 @@ std::tuple<std::shared_ptr<Lattice>, torch::Tensor, torch::Tensor, torch::Tensor
     }
     distributed_lattice->m_name="distributed_lattice";
     distributed_lattice->m_hash_table->update_impl();
-   
-    
+
+
     // m_hash_table->clear();
     if(reset_hashmap)   {
-        distributed_lattice->m_hash_table->clear(); 
+        distributed_lattice->m_hash_table->clear();
     }else {
         distributed_lattice->m_hash_table->clear_only_values();
     }
@@ -398,22 +398,22 @@ std::tuple<std::shared_ptr<Lattice>, torch::Tensor, torch::Tensor, torch::Tensor
 
     Tensor positions=positions_raw/m_sigmas_tensor;
 
-    m_impl->distribute(positions.data_ptr<float>(), values.data_ptr<float>(), distributed_tensor.data_ptr<float>(), nr_positions, pos_dim, val_dim, 
+    m_impl->distribute(positions.data_ptr<float>(), values.data_ptr<float>(), distributed_tensor.data_ptr<float>(), nr_positions, pos_dim, val_dim,
                             splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(), *(distributed_lattice->m_hash_table->m_impl) );
     distributed_lattice->m_hash_table->m_nr_filled_is_dirty=true;
 
     VLOG(3) << "after distributing nr_verts is " << distributed_lattice->nr_lattice_vertices();
 
-    auto ret = std::make_tuple (distributed_lattice, distributed_tensor, splatting_indices_tensor, splatting_weights_tensor ); 
+    auto ret = std::make_tuple (distributed_lattice, distributed_tensor, splatting_indices_tensor, splatting_weights_tensor );
     return ret;
-  
+
 }
 
 // Tensor Lattice::create_splatting_mask(const torch::Tensor& nr_points_per_simplex, const int nr_positions, const int max_nr_points){
 
 //     Tensor mask = torch::zeros({nr_positions*(m_pos_dim+1)}, torch::dtype(torch::kBool).device(torch::kCUDA, 0)  );
 
-//     m_impl->create_splatting_mask(mask.data_ptr<bool>(), m_splatting_indices_tensor.data_ptr<int>(), nr_points_per_simplex.data_ptr<int>(), max_nr_points, nr_positions, m_pos_dim); 
+//     m_impl->create_splatting_mask(mask.data_ptr<bool>(), m_splatting_indices_tensor.data_ptr<int>(), nr_points_per_simplex.data_ptr<int>(), max_nr_points, nr_positions, m_pos_dim);
 
 //     return mask;
 // }
@@ -437,7 +437,7 @@ std::shared_ptr<Lattice> Lattice::convolve_im2row_standalone(torch::Tensor& filt
 
     //this lattice should be coarser (so a higher lvl) or finer(lower lvl) or at least at the same lvl as the lattice neigbhours. But the differnce should be at most 1 level
     CHECK(std::abs(m_lvl-lattice_neighbours->m_lvl)<=1) << "the difference in levels between query and neigbhours lattice should be only 1 or zero, so the query should be corser by 1 level or finer by 1 lvl with respect to the neighbours. Or if they are at the same level then nothing needs to be done. However the current lattice lvl is " << m_lvl << " and the neighbours lvl is " << lattice_neighbours->m_lvl;
-    
+
     // VLOG(4) <<"starting convolved im2row_standlaone. The current lattice has nr_vertices_lattices" << nr_lattice_vertices();
     CHECK(nr_lattice_vertices()!=0) << "Why does this current lattice have zero nr_filled?";
     int nr_vertices=nr_lattice_vertices();
@@ -453,14 +453,14 @@ std::shared_ptr<Lattice> Lattice::convolve_im2row_standalone(torch::Tensor& filt
 
     Tensor lattice_rowified=torch::zeros({nr_vertices, filter_extent* lattice_neighbours->val_dim() }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
 
-    
+
     m_impl->im2row(nr_vertices, this->pos_dim(), lattice_neighbours->val_dim(), dilation, lattice_rowified.data_ptr<float>(), filter_extent, *(m_hash_table->m_impl), *(lattice_neighbours->m_hash_table->m_impl), m_lvl, lattice_neighbours->m_lvl, flip_neighbours, false);
-    
+
 
 
     //multiply each patch with the filter bank
     Tensor convolved= lattice_rowified.mm(filter_bank);
-   
+
     convolved_lattice->m_hash_table->set_values(convolved);
     // convolved_lattice->m_val_dim=nr_filters;
     // convolved_lattice->m_hash_table->update_impl(); //very important
@@ -488,7 +488,7 @@ std::shared_ptr<Lattice> Lattice::convolve_im2row_standalone(torch::Tensor& filt
 
 //     //this lattice should be coarser (so a higher lvl) or at least at the same lvl as the lattice neigbhours (which is a finer lvl therefore the lattice_neigbhours.m_lvl is lower)
 //     CHECK(m_lvl-lattice_neighbours->m_lvl<=1) << "the difference in levels between query and neigbhours lattice should be only 1 or zero, so the query should be corser by 1 level with respect to the neighbours. Or if they are at the same level then nothing needs to be done. However the current lattice lvl is " << m_lvl << " and the neighbours lvl is " << lattice_neighbours->m_lvl;
-    
+
 //     VLOG(4) <<"starting convolved im2row_standlaone. The current lattice has nr_vertices_lattices" << nr_lattice_vertices();
 //     CHECK(nr_lattice_vertices()!=0) << "Why does this current lattice have zero nr_filled?";
 //     int nr_vertices=nr_lattice_vertices();
@@ -584,7 +584,7 @@ torch::Tensor Lattice::im2rowindices(std::shared_ptr<Lattice> lattice_neighbours
     CHECK(filter_extent == get_filter_extent(1) ) << "Filters should convolve over all the neighbours in the 1 hop plus the center vertex lattice. So the filter extent should be " << get_filter_extent(1) << ". However it is" << filter_extent;
 
 
-    
+
     //this lattice should be coarser (so a higher lvl) or finer(lower lvl) or at least at the same lvl as the lattice neigbhours. But the differnce should be at most 1 level
     CHECK(std::abs(m_lvl-lattice_neighbours->m_lvl)<=1) << "the difference in levels between query and neigbhours lattice should be only 1 or zero, so the query should be corser by 1 level or finer by 1 lvl with respect to the neighbours. Or if they are at the same level then nothing needs to be done. However the current lattice lvl is " << m_lvl << " and the neighbours lvl is " << lattice_neighbours->m_lvl;
 
@@ -618,7 +618,7 @@ torch::Tensor Lattice::im2row(std::shared_ptr<Lattice> lattice_neighbours, const
     CHECK(filter_extent == get_filter_extent(1) ) << "Filters should convolve over all the neighbours in the 1 hop plus the center vertex lattice. So the filter extent should be " << get_filter_extent(1) << ". However it is" << filter_extent;
 
 
-    
+
     //this lattice should be coarser (so a higher lvl) or finer(lower lvl) or at least at the same lvl as the lattice neigbhours. But the differnce should be at most 1 level
     CHECK(std::abs(m_lvl-lattice_neighbours->m_lvl)<=1) << "the difference in levels between query and neigbhours lattice should be only 1 or zero, so the query should be corser by 1 level or finer by 1 lvl with respect to the neighbours. Or if they are at the same level then nothing needs to be done. However the current lattice lvl is " << m_lvl << " and the neighbours lvl is " << lattice_neighbours->m_lvl;
 
@@ -653,7 +653,7 @@ torch::Tensor Lattice::row2im(const torch::Tensor& lattice_rowified,  const int 
     }
 
     int nr_vertices=nr_lattice_vertices();
-    m_hash_table->m_values_tensor=torch::zeros({nr_vertices, val_dim() }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) ); 
+    m_hash_table->m_values_tensor=torch::zeros({nr_vertices, val_dim() }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
     m_hash_table->update_impl();
 
     CHECK(nr_lattice_vertices()!=0) <<"Something went wrong because have zero lattice vertices";
@@ -679,7 +679,7 @@ std::shared_ptr<Lattice> Lattice::create_coarse_verts(){
     coarse_lattice->m_sigmas_tensor=m_sigmas_tensor.clone()*2.0; //the sigma for the coarser one is double. This is done so if we slice at this lattice we scale the positions with the correct sigma
     for(size_t i=0; i<m_sigmas.size(); i++){
         coarse_lattice->m_sigmas[i]=m_sigmas[i]*2.0;
-    } 
+    }
     coarse_lattice->m_hash_table->m_values_tensor=torch::zeros({1, val_dim }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) ); //we just create some dummy values just so that the clear that we will do not will not destroy the current values. We will create the values when we know how many vertices we have
     coarse_lattice->m_hash_table->m_keys_tensor=torch::zeros({capacity, pos_dim}, torch::dtype(torch::kInt32).device(torch::kCUDA, 0) );
     coarse_lattice->m_hash_table->m_entries_tensor=torch::zeros({capacity}, torch::dtype(torch::kInt32).device(torch::kCUDA, 0) ) ;
@@ -719,7 +719,7 @@ std::shared_ptr<Lattice> Lattice::create_coarse_verts_naive(torch::Tensor& posit
     coarse_lattice->m_sigmas=m_sigmas;
     for(size_t i=0; i<m_sigmas.size(); i++){
         coarse_lattice->m_sigmas[i]=m_sigmas[i]*2.0;
-    } 
+    }
     coarse_lattice->m_hash_table->m_values_tensor=torch::zeros({1, val_dim}, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) ); //we just create some dummy values just so that the clear that we will do not will not destroy the current values. We will create the values when we know how many vertices we have
     coarse_lattice->m_hash_table->m_keys_tensor=torch::zeros({capacity, pos_dim}, torch::dtype(torch::kInt32).device(torch::kCUDA, 0) );
     coarse_lattice->m_hash_table->m_entries_tensor=torch::zeros({capacity}, torch::dtype(torch::kInt32).device(torch::kCUDA, 0) ) ;
@@ -743,7 +743,7 @@ std::shared_ptr<Lattice> Lattice::create_coarse_verts_naive(torch::Tensor& posit
 
 torch::Tensor Lattice::slice_standalone_with_precomputation(torch::Tensor& positions_raw, torch::Tensor& splatting_indices_tensor, torch::Tensor& splatting_weights_tensor){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -763,7 +763,7 @@ torch::Tensor Lattice::slice_standalone_with_precomputation(torch::Tensor& posit
     Tensor positions=positions_raw/m_sigmas_tensor;
     TIME_END("scale_by_sigma")
 
-    //initialize the output values to zero 
+    //initialize the output values to zero
     Tensor sliced_values_hom_tensor=torch::zeros({nr_positions, val_dim() }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
 
 
@@ -788,7 +788,7 @@ torch::Tensor Lattice::slice_standalone_with_precomputation(torch::Tensor& posit
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::slice_standalone_no_precomputation(torch::Tensor& positions_raw){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -806,7 +806,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::slice_standalon
     Tensor positions=positions_raw/m_sigmas_tensor;
     TIME_END("scale_by_sigma")
 
-    //initialize the output values to zero 
+    //initialize the output values to zero
     Tensor sliced_values_hom_tensor=torch::zeros({nr_positions, val_dim() }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
 
     //recalculate the splatting indices and weight for the backward pass of the slice
@@ -823,7 +823,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::slice_standalon
     TIME_END("slice");
 
 
-    auto ret = std::make_tuple (sliced_values_hom_tensor, splatting_indices_tensor, splatting_weights_tensor ); 
+    auto ret = std::make_tuple (sliced_values_hom_tensor, splatting_indices_tensor, splatting_weights_tensor );
     return ret;
 
     // return sliced_values_hom_tensor.clone()
@@ -834,7 +834,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::slice_standalon
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::gather_standalone_no_precomputation(torch::Tensor& positions_raw){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -852,7 +852,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::gather_standalo
     Tensor positions=positions_raw/m_sigmas_tensor;
     TIME_END("scale_by_sigma")
 
-    //initialize the output values to zero 
+    //initialize the output values to zero
     int row_size_gathered=(pos_dim+1)*(val_dim()+1); //we have m_pos_dim+1 vertices in a lattice and each has values of m_val_full_dim plus a barycentric coord
     Tensor gathered_values_tensor=torch::zeros({nr_positions, row_size_gathered}, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
 
@@ -868,7 +868,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::gather_standalo
     m_impl->gather_standalone_no_precomputation( positions.data_ptr<float>(), gathered_values_tensor.data_ptr<float>(), this->pos_dim(), this->val_dim(),  nr_positions, splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(), *(m_hash_table->m_impl) );
     TIME_END("gather");
 
-    auto ret = std::make_tuple (gathered_values_tensor, splatting_indices_tensor, splatting_weights_tensor ); 
+    auto ret = std::make_tuple (gathered_values_tensor, splatting_indices_tensor, splatting_weights_tensor );
     return ret;
     // return gathered_values_tensor;
 
@@ -877,7 +877,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::gather_standalo
 
 torch::Tensor Lattice::gather_standalone_with_precomputation(torch::Tensor& positions_raw, torch::Tensor& splatting_indices_tensor, torch::Tensor& splatting_weights_tensor){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -897,7 +897,7 @@ torch::Tensor Lattice::gather_standalone_with_precomputation(torch::Tensor& posi
     Tensor positions=positions_raw/m_sigmas_tensor;
     // TIME_END("scale_by_sigma")
 
-    //initialize the output values to zero 
+    //initialize the output values to zero
     int row_size_gathered=(this->pos_dim()+1)*(this->val_dim()+1); //we have m_pos_dim+1 vertices in a lattice and each has values of m_val_full_dim plus a barycentric coord
     Tensor gathered_values_tensor=torch::zeros({nr_positions, row_size_gathered}, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
 
@@ -920,7 +920,7 @@ torch::Tensor Lattice::gather_standalone_with_precomputation(torch::Tensor& posi
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>  Lattice::slice_classify_no_precomputation(torch::Tensor& positions_raw, torch::Tensor& delta_weights, torch::Tensor& linear_clasify_weight, torch::Tensor& linear_clasify_bias, const int nr_classes){
 
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -958,21 +958,21 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>  Lattice::slice_classify
 
 
     TIME_START("slice_classify");
-    m_impl->slice_classify_no_precomputation( positions.data_ptr<float>(), 
-                                              sliced_values_hom_tensor.data_ptr<float>(), 
-                                              delta_weights.data_ptr<float>(), 
-                                              linear_clasify_weight.data_ptr<float>(), 
-                                              linear_clasify_bias.data_ptr<float>(), 
+    m_impl->slice_classify_no_precomputation( positions.data_ptr<float>(),
+                                              sliced_values_hom_tensor.data_ptr<float>(),
+                                              delta_weights.data_ptr<float>(),
+                                              linear_clasify_weight.data_ptr<float>(),
+                                              linear_clasify_bias.data_ptr<float>(),
                                               nr_classes,
-                                              this->pos_dim(), 
-                                              this->val_dim(),  
-                                              nr_positions, 
-                                              splatting_indices_tensor.data_ptr<int>(), 
-                                              splatting_weights_tensor.data_ptr<float>(), 
+                                              this->pos_dim(),
+                                              this->val_dim(),
+                                              nr_positions,
+                                              splatting_indices_tensor.data_ptr<int>(),
+                                              splatting_weights_tensor.data_ptr<float>(),
                                               *(m_hash_table->m_impl) );
     TIME_END("slice_classify");
 
-    auto ret = std::make_tuple (sliced_values_hom_tensor, splatting_indices_tensor, splatting_weights_tensor ); 
+    auto ret = std::make_tuple (sliced_values_hom_tensor, splatting_indices_tensor, splatting_weights_tensor );
     return ret;
     // return sliced_values_hom_tensor;
 
@@ -981,7 +981,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>  Lattice::slice_classify
 
 torch::Tensor Lattice::slice_classify_with_precomputation(torch::Tensor& positions_raw, torch::Tensor& delta_weights, torch::Tensor& linear_clasify_weight, torch::Tensor& linear_clasify_bias, const int nr_classes, torch::Tensor& splatting_indices_tensor, torch::Tensor& splatting_weights_tensor){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -1020,17 +1020,17 @@ torch::Tensor Lattice::slice_classify_with_precomputation(torch::Tensor& positio
 
 
     // TIME_START("slice_classify_cuda");
-    m_impl->slice_classify_with_precomputation( positions.data_ptr<float>(), 
-                                              sliced_values_hom_tensor.data_ptr<float>(), 
-                                              delta_weights.data_ptr<float>(), 
-                                              linear_clasify_weight.data_ptr<float>(), 
-                                              linear_clasify_bias.data_ptr<float>(), 
+    m_impl->slice_classify_with_precomputation( positions.data_ptr<float>(),
+                                              sliced_values_hom_tensor.data_ptr<float>(),
+                                              delta_weights.data_ptr<float>(),
+                                              linear_clasify_weight.data_ptr<float>(),
+                                              linear_clasify_bias.data_ptr<float>(),
                                               nr_classes,
-                                              this->pos_dim(), 
-                                              this->val_dim(),  
-                                              nr_positions, 
-                                              splatting_indices_tensor.data_ptr<int>(), 
-                                              splatting_weights_tensor.data_ptr<float>(), 
+                                              this->pos_dim(),
+                                              this->val_dim(),
+                                              nr_positions,
+                                              splatting_indices_tensor.data_ptr<int>(),
+                                              splatting_weights_tensor.data_ptr<float>(),
                                               *(m_hash_table->m_impl) );
     // TIME_END("slice_classify_cuda");
 
@@ -1044,7 +1044,7 @@ torch::Tensor Lattice::slice_classify_with_precomputation(torch::Tensor& positio
 
 void Lattice::slice_backwards_standalone_with_precomputation(torch::Tensor& positions_raw, const torch::Tensor& sliced_values_hom, const Tensor& grad_sliced_values, torch::Tensor& splatting_indices_tensor, torch::Tensor& splatting_weights_tensor){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -1066,7 +1066,7 @@ void Lattice::slice_backwards_standalone_with_precomputation(torch::Tensor& posi
 
 void Lattice::slice_backwards_standalone_with_precomputation_no_homogeneous(torch::Tensor& positions_raw, const Tensor& grad_sliced_values, torch::Tensor& splatting_indices_tensor, torch::Tensor& splatting_weights_tensor){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -1090,7 +1090,7 @@ void Lattice::slice_backwards_standalone_with_precomputation_no_homogeneous(torc
 
 void Lattice::slice_classify_backwards_with_precomputation(const torch::Tensor& grad_class_logits, torch::Tensor& positions_raw, torch::Tensor& initial_values, torch::Tensor& delta_weights, torch::Tensor&  linear_clasify_weight, torch::Tensor& linear_clasify_bias, const int nr_classes, torch::Tensor& grad_lattice_values, torch::Tensor& grad_delta_weights, torch::Tensor& grad_linear_clasify_weight, torch::Tensor& grad_linear_clasify_bias, torch::Tensor& splatting_indices_tensor, torch::Tensor& splatting_weights_tensor){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -1116,7 +1116,7 @@ void Lattice::slice_classify_backwards_with_precomputation(const torch::Tensor& 
 
 void Lattice::gather_backwards_standalone_with_precomputation(const torch::Tensor& positions_raw, const Tensor& grad_sliced_values, torch::Tensor& splatting_indices_tensor, torch::Tensor& splatting_weights_tensor){
 
-    check_positions(positions_raw); 
+    check_positions(positions_raw);
     CHECK(val_dim()>0) << "m_val_dim is 0 or lwoer. We have to splat something first so that we have values from where to slice. Val dim is " << val_dim();
     int nr_positions=positions_raw.size(0);
     int pos_dim=positions_raw.size(1);
@@ -1160,7 +1160,7 @@ std::shared_ptr<Lattice> Lattice::clone_lattice(){
 
 
 //     //those keys only store the 2 dimensional part, we need to recreate the full m_pos_dim+1 key
-//     Eigen::MatrixXd V; 
+//     Eigen::MatrixXd V;
 //     V.resize(keys_eigen_2D.rows(), 3);
 //     Eigen::VectorXf summed = keys_eigen_2D.rowwise().sum();
 //     for (int i=0; i < keys_eigen_2D.rows(); i++) {
@@ -1217,12 +1217,12 @@ std::shared_ptr<Lattice> Lattice::clone_lattice(){
 //     }
 
 
-//     //create E matrix 
+//     //create E matrix
 //     Eigen::MatrixXd E=create_E_matrix(m_pos_dim);
-//     //inverse it 
+//     //inverse it
 //     Eigen::MatrixXd E_inv=E.completeOrthogonalDecomposition().pseudoInverse();
 //     //multiply by inverse
-//     //scale by inv stddev 
+//     //scale by inv stddev
 //     float invStdDev = (m_pos_dim + 1) * sqrt(2.0f / 3);
 //     //scale my sigmas
 //     Eigen::MatrixXd deelevated_vertices(keys_eigen_row_major.rows(),3);
@@ -1236,7 +1236,7 @@ std::shared_ptr<Lattice> Lattice::clone_lattice(){
 //     }
 
 
-//     return deelevated_vertices;    
+//     return deelevated_vertices;
 // }
 
 // Eigen::MatrixXd Lattice::color_no_neighbours(){
@@ -1318,7 +1318,7 @@ std::string Lattice::name(){
     return m_name;
 }
 int Lattice::nr_lattice_vertices(){
-  
+
     // m_impl->wait_to_create_vertices(); //we synchronize the event and wait until whatever kernel was launched to create vertices has also finished
     // // cudaEventSynchronize(m_event_nr_vertices_lattice_changed);  //we synchronize the event and wait until whatever kernel was launched to create vertices has also finished
     // int nr_verts=0;
@@ -1328,7 +1328,7 @@ int Lattice::nr_lattice_vertices(){
     // return nr_verts;
 
 
-    //attempt 2  
+    //attempt 2
     //check if the nr_latttice_vertices is dirty which means that a kernel has been executed that might have modified the nr of vertices
     int nr_verts=0;
     if (m_hash_table->m_nr_filled_is_dirty){
@@ -1400,6 +1400,3 @@ void Lattice::set_values(const torch::Tensor& new_values){
 void Lattice::set_positions( const torch::Tensor& positions_raw ){
     m_positions=positions_raw;
 }
- 
-
-

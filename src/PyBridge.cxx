@@ -4,19 +4,13 @@
 #include "torch/torch.h"
 #include "torch/csrc/utils/pybind.h"
 
-//my stuff 
-// #include "data_loaders/DataLoaderShapeNetPartSeg.h"
-// #include "easy_pbr/Mesh.h"
-// #include "easy_pbr/LabelMngr.h"
+//my stuff
 #include "lattice_net/Lattice.cuh"
 #include "lattice_net/HashTable.cuh"
-#include "lattice_net/TrainParams.h"
-#include "lattice_net/ModelParams.h"
-#include "lattice_net/EvalParams.h"
 
 
 // https://pybind11.readthedocs.io/en/stable/advanced/cast/stl.html
-// PYBIND11_MAKE_OPAQUE(std::vector<int>); //to be able to pass vectors by reference to functions and have things like push back actually work 
+// PYBIND11_MAKE_OPAQUE(std::vector<int>); //to be able to pass vectors by reference to functions and have things like push back actually work
 // PYBIND11_MAKE_OPAQUE(std::vector<float>, std::allocator<float> >);
 
 namespace py = pybind11;
@@ -112,49 +106,4 @@ PYBIND11_MODULE(latticenet, m) {
     .def("set_sigma", &Lattice::set_sigma)
     ;
 
-      //TrainParams
-    py::class_<TrainParams, std::shared_ptr<TrainParams>   > (m, "TrainParams", py::module_local())
-    .def_static("create", &TrainParams::create<const std::string> ) //for templated methods like this one we need to explicitly instantiate one of the arguments
-    .def("dataset_name",  &TrainParams::dataset_name )
-    .def("with_viewer",  &TrainParams::with_viewer )
-    .def("with_visdom",  &TrainParams::with_visdom )
-    .def("with_tensorboard",  &TrainParams::with_tensorboard )
-    .def("lr",  &TrainParams::lr )
-    .def("weight_decay",  &TrainParams::weight_decay )
-    .def("save_checkpoint",  &TrainParams::save_checkpoint )
-    .def("checkpoint_path",  &TrainParams::checkpoint_path )
-    ;
-
-    //EvalParams
-    py::class_<EvalParams, std::shared_ptr<EvalParams>   > (m, "EvalParams", py::module_local())
-    .def_static("create", &EvalParams::create<const std::string> ) //for templated methods like this one we need to explicitly instantiate one of the arguments
-    .def("dataset_name",  &EvalParams::dataset_name )
-    .def("with_viewer",  &EvalParams::with_viewer )
-    .def("checkpoint_path",  &EvalParams::checkpoint_path )
-    .def("do_write_predictions",  &EvalParams::do_write_predictions )
-    .def("output_predictions_path",  &EvalParams::output_predictions_path )
-    ;
-
-    //ModelParams
-    py::class_<ModelParams, std::shared_ptr<ModelParams>   > (m, "ModelParams", py::module_local())
-    .def_static("create", &ModelParams::create<const std::string> ) //for templated methods like this one we need to explicitly instantiate one of the arguments
-    .def("positions_mode",  &ModelParams::positions_mode )
-    .def("values_mode",  &ModelParams::values_mode )
-    .def("pointnet_channels_per_layer",  &ModelParams::pointnet_channels_per_layer )
-    .def("pointnet_start_nr_channels",  &ModelParams::pointnet_start_nr_channels )
-    .def("nr_downsamples",  &ModelParams::nr_downsamples )
-    .def("nr_blocks_down_stage",  &ModelParams::nr_blocks_down_stage )
-    .def("nr_blocks_bottleneck",  &ModelParams::nr_blocks_bottleneck )
-    .def("nr_blocks_up_stage",  &ModelParams::nr_blocks_up_stage )
-    .def("nr_levels_down_with_normal_resnet",  &ModelParams::nr_levels_down_with_normal_resnet )
-    .def("nr_levels_up_with_normal_resnet",  &ModelParams::nr_levels_up_with_normal_resnet )
-    .def("compression_factor",  &ModelParams::compression_factor )
-    .def("dropout_last_layer",  &ModelParams::dropout_last_layer )
-    // .def("experiment",  &ModelParams::experiment )
-    ;
-
-
 }
-
-
-

@@ -1,15 +1,15 @@
 #include "lattice_net/HashTable.cuh"
 
 #include <cuda.h>
-// #include "torch/torch.h" 
+// #include "torch/torch.h"
 
-//my stuff 
+//my stuff
 #include "lattice_net/kernels/HashTableGPU.cuh"
 
 
 
 HashTable::HashTable(const int capacity):
-    m_capacity(capacity), 
+    m_capacity(capacity),
     // m_pos_dim(-1),
     m_impl( new HashTableGPU() ),
     m_nr_filled_is_dirty(true),
@@ -95,7 +95,7 @@ void HashTable::update_impl(){
 
 
 
-//getters 
+//getters
 int HashTable::pos_dim(){
     return m_keys_tensor.size(1);
 }
@@ -113,4 +113,3 @@ void HashTable::set_values(const torch::Tensor& new_values){
     m_values_tensor=new_values.contiguous();
     update_impl();
 }
- 

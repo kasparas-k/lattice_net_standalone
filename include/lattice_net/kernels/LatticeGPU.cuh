@@ -2,7 +2,7 @@
 
 #include "lattice_net/kernels/HashTableGPU.cuh"
 
-#ifndef __CUDACC_RTC__ 
+#ifndef __CUDACC_RTC__
     #include "lattice_net/jitify_helper/jitify_helper.cuh"
 #endif
 
@@ -10,23 +10,23 @@
     #include <cuda.h>
     #include <cuda_runtime.h>
     #include <cuda_runtime_api.h>
-    #include "device_launch_parameters.h" //needed for threadIdx and blockDim 
+    #include "device_launch_parameters.h" //needed for threadIdx and blockDim
 #endif
 
-#ifndef __CUDACC_RTC__ 
+#ifndef __CUDACC_RTC__
 //Add this header after we add all cuda stuff because we need the profiler to have cudaDeviceSyncronize defined
 #define ENABLE_CUDA_PROFILING 1
-#include "Profiler.h" 
+#include "Profiler.h"
 #endif
 
 
 #define BLOCK_SIZE 256
 
-class LatticeGPU { 
+class LatticeGPU {
 public:
 
     //during nvrtc compilation we do not want to compile this code as it does not work due to not including vector definition
-    #ifndef __CUDACC_RTC__ 
+    #ifndef __CUDACC_RTC__
         LatticeGPU(){
             create_program_handles();
             cudaEventCreate (&m_event_nr_vertices_lattice_changed);
@@ -40,7 +40,7 @@ public:
 
         // void splat_standalone(const float* positions, const float* values, const int nr_positions, const int pos_dim, const int val_dim, const float* splatting_indices_and_weights, const HashTableGPU& hash_table_gpu){
         void splat_standalone(const float* positions, const float* values, const int nr_positions, const int pos_dim, const int val_dim, const int* splatting_indices, const float* splatting_weights, const HashTableGPU& hash_table_gpu){
-   
+
             TIME_START("kernel_splat");
             dim3 blocks((nr_positions - 1) / BLOCK_SIZE + 1, 1, 1);
             dim3 blockSize(BLOCK_SIZE, 1, 1);
@@ -73,7 +73,7 @@ public:
 
 
         void just_create_verts(const float* positions, const int nr_positions, const int pos_dim, const int val_dim, const bool return_indices_and_weights,  const int* splatting_indices, const float* splatting_weights, const HashTableGPU& hash_table_gpu){
-   
+
             dim3 blocks((nr_positions - 1) / BLOCK_SIZE + 1, 1, 1);
             dim3 blockSize(BLOCK_SIZE, 1, 1);
             CUresult res= m_lattice_program.kernel("kernel_splat")
@@ -90,7 +90,7 @@ public:
 
 
         void distribute(const float* positions, const float* values, const float* distributed, const int nr_positions, const int pos_dim, const int val_dim,  const int* splatting_indices, const float* splatting_weights, const HashTableGPU& hash_table_gpu){
-   
+
             dim3 blocks((nr_positions - 1) / BLOCK_SIZE + 1, 1, 1);
             dim3 blockSize(BLOCK_SIZE, 1, 1);
             CUresult res= m_lattice_program.kernel("distribute")
@@ -104,7 +104,7 @@ public:
         }
 
         void create_splatting_mask(bool* mask,  const int* splatting_indices, const int* nr_points_per_simplex, const int max_nr_points, const int nr_positions, const int pos_dim){
-  
+
             int size_of_indices_vector=nr_positions*(pos_dim+1);
             dim3 blocks(( nr_positions*(pos_dim+1) - 1) / BLOCK_SIZE + 1, 1, 1);
             dim3 blockSize(BLOCK_SIZE, 1, 1);
@@ -147,7 +147,7 @@ public:
 
             int nr_blocks=nr_vertices/BLOCK_SIZE;
             // check for partial block at the end
-            if(nr_vertices % BLOCK_SIZE) ++nr_blocks; 
+            if(nr_vertices % BLOCK_SIZE) ++nr_blocks;
 
             CUresult res= m_lattice_program.kernel("depthwise_convolve")
                     .instantiate(pos_dim, val_dim, filter_extent)
@@ -162,7 +162,7 @@ public:
 
             int nr_blocks=nr_vertices/BLOCK_SIZE;
             // check for partial block at the end
-            if(nr_vertices % BLOCK_SIZE) ++nr_blocks; 
+            if(nr_vertices % BLOCK_SIZE) ++nr_blocks;
 
             CUresult res= m_lattice_program.kernel("im2row")
                     .instantiate(pos_dim, val_dim)
@@ -177,7 +177,7 @@ public:
 
             int nr_blocks=nr_vertices/BLOCK_SIZE;
             // check for partial block at the end
-            if(nr_vertices % BLOCK_SIZE) ++nr_blocks; 
+            if(nr_vertices % BLOCK_SIZE) ++nr_blocks;
 
             CUresult res= m_lattice_program.kernel("im2rowindices")
                     .instantiate(pos_dim, val_dim)
@@ -275,7 +275,7 @@ public:
             CUDA_CHECK_ERROR();
         }
 
-        
+
 
         void gather_elevated_standalone_no_precomputation(const int* keys, float* gathered_values, const int pos_dim, const int val_full_dim, const int nr_vertices, const int* splatting_indices, const float* splatting_weights,  const HashTableGPU& hash_table_gpu_to_gather_from, const int lattice_to_gather_from_lvl, const int elevated_verts_lvl){
 
@@ -337,7 +337,7 @@ public:
             CUDA_CHECK_ERROR();
         }
 
-        
+
 
         void slice_backwards_standalone_with_precomputation(float* sliced_values_hom, float* grad_sliced_values, int* splatting_indices, float* splatting_weights,  const int pos_dim, const int val_full_dim, const int nr_positions, const HashTableGPU& hash_table_gpu){
 
@@ -366,8 +366,8 @@ public:
 
         }
 
- 
-        void slice_classify_backwards_with_precomputation(float* grad_class_logits, float* initial_values, int* splatting_indices, float* splatting_weights,  const int pos_dim, const int val_dim, const int nr_positions, 
+
+        void slice_classify_backwards_with_precomputation(float* grad_class_logits, float* initial_values, int* splatting_indices, float* splatting_weights,  const int pos_dim, const int val_dim, const int nr_positions,
         float* delta_weights, float* linear_clasify_weight, float* linear_clasify_bias, const int nr_classes, float* grad_lattice_values, float* grad_delta_weights, float* grad_linear_clasify_weight, float* grad_linear_clasify_bias,
          const HashTableGPU& hash_table_gpu){
 
@@ -414,7 +414,7 @@ public:
         void wait_to_create_vertices(){
             cudaEventSynchronize(m_event_nr_vertices_lattice_changed);
         }
-        
+
 
         jitify::Program m_lattice_program;
 
@@ -424,7 +424,7 @@ public:
 
 
 
-   
+
 
 };
 
@@ -464,7 +464,7 @@ __device__ bool are_all_coords_integer(const float* vec, const int vec_size){
         float decimal_part=0.0;
         decimal_part=modff(val, &integer_part);
         decimal_part=fabs(decimal_part);
-        if( decimal_part>0.0001 ){ 
+        if( decimal_part>0.0001 ){
             return false;
         }
     }
@@ -473,7 +473,7 @@ __device__ bool are_all_coords_integer(const float* vec, const int vec_size){
 }
 
 
-//I believe that when we embedd a fine lattice in a coarse one we can end up with keys of type 0.5, 0.5, -1.0 so making movements of 0.5 with them will end up in non integer keys. This helps me debug this 
+//I believe that when we embedd a fine lattice in a coarse one we can end up with keys of type 0.5, 0.5, -1.0 so making movements of 0.5 with them will end up in non integer keys. This helps me debug this
 __device__ bool is_only_one_coord_integer(const float* vec, const int vec_size){
     int nr_integer_coords=0;
     for (int i = 0; i < vec_size; i++) {
@@ -513,7 +513,7 @@ __device__ int nr_coords_integer(const float* vec, const int vec_size){
 
 
 template<int pos_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 elevate_points(const int nr_positions,  const float* positions, float* elevated){
 
@@ -523,7 +523,7 @@ elevate_points(const int nr_positions,  const float* positions, float* elevated)
     if(idx>=nr_positions){ //don't go out of bounds
         return;
     }
-    
+
     float* elevated_point = elevated + idx * (pos_dim + 1);
     const float *position = positions + idx * pos_dim;
     elevate<pos_dim>(elevated_point, position);
@@ -532,7 +532,7 @@ elevate_points(const int nr_positions,  const float* positions, float* elevated)
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 distribute(float* positions, float* values, const int nr_positions, int* splatting_indices, float* splatting_weights, float* distributed, HashTableGPU hash_table){
 
@@ -541,7 +541,7 @@ distribute(float* positions, float* values, const int nr_positions, int* splatti
     if(idx>=nr_positions){ //don't go out of bounds
         return;
     }
-    
+
     float elevated[pos_dim + 1];
     const float *position = positions + idx * pos_dim;
     elevate<pos_dim>(elevated, position);
@@ -606,14 +606,14 @@ distribute(float* positions, float* values, const int nr_positions, int* splatti
     float* distributed_out_for_cur_position=distributed + idx*(pos_dim+1)*( pos_dim + val_dim +1 ); //each row of the distributed will have  ( pos_dim + val_dim +1 ) elements for each of the (pos_dim+1) vertices of a simplex. therefore the whole row of the distributed matrix is of size (pos_dim+1)*( pos_dim + val_dim +1 )
     float* value_cur_position= values + idx * val_dim;
     for (int remainder = 0; remainder <= pos_dim; remainder++) {
-        // Compute the location of the lattice point explicitly. Including the last coordinate, even though it is redundant, as we know it sums up to 0. 
+        // Compute the location of the lattice point explicitly. Including the last coordinate, even though it is redundant, as we know it sums up to 0.
         for (int i = 0; i < pos_dim+1; i++) {
             key[i] = static_cast<int>(rem0[i] + remainder);
             if (rank[i] > pos_dim - remainder)
                 key[i] -= (pos_dim + 1);
         }
 
-      
+
 
         //using two matrices for indices and weights
         int index_in_m_entries=hash_table.insert(key); //the slot in which it will be inserted is linearly increasing with an atomicAdd
@@ -627,19 +627,19 @@ distribute(float* positions, float* values, const int nr_positions, int* splatti
         float* distributed_out_lattice_vertex = distributed_out_for_cur_position + remainder*( pos_dim + val_dim+1  );
         // distribute positions
         for(int i=0; i<pos_dim; i++){
-           distributed_out_lattice_vertex[i] = position[i];  
+           distributed_out_lattice_vertex[i] = position[i];
         }
         //distribute values
         for(int i=0; i<val_dim; i++){
-           distributed_out_lattice_vertex[ pos_dim + i] = value_cur_position[i]; 
+           distributed_out_lattice_vertex[ pos_dim + i] = value_cur_position[i];
         }
         //distribute barycentric
-        distributed_out_lattice_vertex[ pos_dim+val_dim] = barycentric[remainder]; 
-        
-        
-    
+        distributed_out_lattice_vertex[ pos_dim+val_dim] = barycentric[remainder];
 
-        
+
+
+
+
 
     }
 
@@ -651,7 +651,7 @@ distribute(float* positions, float* values, const int nr_positions, int* splatti
 
 
 template<int pos_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 create_splatting_mask(bool* mask, const int* splatting_indices,  const int* nr_points_per_simplex, const int max_nr_points, const int size_of_indices_vector){
 
@@ -659,7 +659,7 @@ create_splatting_mask(bool* mask, const int* splatting_indices,  const int* nr_p
     int idx = blockIdx.x * blockDim.x + threadIdx.x; //each thread will deal with an edge going form a point towards a lattice vertex
     if(idx>=size_of_indices_vector){ //don't go out of bounds
         return;
-    } 
+    }
 
     int lattice_vertex_idx=splatting_indices[idx];
     if(lattice_vertex_idx<0){ //if the point didnt splat, then we have a -1 and we don't care about that
@@ -691,7 +691,7 @@ create_splatting_mask(bool* mask, const int* splatting_indices,  const int* nr_p
         float overfill=nr_points/max_nr_points; //by how much we verfilled out cap
         //imagine we overifll by a factor of 100
         if (r_float < 1.0/overfill){
-            mask[idx]=true; //keep 
+            mask[idx]=true; //keep
         }else{
             mask[idx]=false; //kill
         }
@@ -705,7 +705,7 @@ create_splatting_mask(bool* mask, const int* splatting_indices,  const int* nr_p
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 kernel_splat(const float* positions, const int nr_positions, int* splatting_indices, float* splatting_weights, HashTableGPU hash_table, bool write_new_indices_and_weights){
 
@@ -714,7 +714,7 @@ kernel_splat(const float* positions, const int nr_positions, int* splatting_indi
     if(idx>=nr_positions){ //don't go out of bounds
         return;
     }
-    
+
     float elevated[pos_dim + 1];
     const float *position = positions + idx * pos_dim;
     int rem0[pos_dim + 1];
@@ -831,7 +831,7 @@ kernel_splat(const float* positions, const int nr_positions, int* splatting_indi
             // printf("position %d could not be inserted\n", idx);
         }
 
-        // //store things 
+        // //store things
         // float weight=barycentric[remainder];
         // splatting_indices_and_weights[ idx * (pos_dim + 1)*2 + remainder*2 + 0] = index_in_m_entries;
         // splatting_indices_and_weights[ idx * (pos_dim + 1)*2 + remainder*2 + 1] = weight;
@@ -845,7 +845,7 @@ kernel_splat(const float* positions, const int nr_positions, int* splatting_indi
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 splatCache(const int n, const float *values, float* splatting_indices_and_weights,  HashTableGPU hash_table) {
 
@@ -872,8 +872,8 @@ splatCache(const int n, const float *values, float* splatting_indices_and_weight
 
         // convert the matrix entry from a pointer into the entries array to a pointer into the keys/values array
         int index_to_hash_table = hash_table.m_entries[splatting_idx]; //not this indexes into m_keys and m_values
-        // splatting_indices[ idx * (pos_dim + 1) + color] = index_to_hash_table; 
-        splatting_indices_and_weights[ idx * (pos_dim + 1)*2 + color*2 + 0] = index_to_hash_table; 
+        // splatting_indices[ idx * (pos_dim + 1) + color] = index_to_hash_table;
+        splatting_indices_and_weights[ idx * (pos_dim + 1)*2 + color*2 + 0] = index_to_hash_table;
         splatting_idx=index_to_hash_table;
         // matrix[idx * (pos_dim + 1) + color].index = r.index = hash_table.m_entries[splatting_idx];
         // record the offset into the keys/values array in shared space
@@ -917,7 +917,7 @@ splatCache(const int n, const float *values, float* splatting_indices_and_weight
         #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 200)
             // #warning CUDA ARCH IS FINE
             atomicAdd(val + j, myValue[j]);
-        #else 
+        #else
             #warning CUDA ARCH NEEDS TO BE AT LEAST 200 IN ORDER TO ENABLE ATOMIC OPERATIONS!
         #endif
     }
@@ -925,7 +925,7 @@ splatCache(const int n, const float *values, float* splatting_indices_and_weight
 
 template<int pos_dim, int val_dim>
 // __global__ void splatCache(const int n, const float *values, int* splatting_indices, float* splatting_weights, HashTableGPU hash_table) {
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 splatCacheNaive(const int nr_positions, float *values, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -958,22 +958,22 @@ splatCacheNaive(const int nr_positions, float *values, int* splatting_indices, f
                     // #warning CUDA ARCH IS FINE
                     atomicAdd(valOut +j, my_value[j]*weight);
                     // atomicAdd(valOut +j, 0);
-                #else 
+                #else
                     #warning CUDA ARCH NEEDS TO BE AT LEAST 200 IN ORDER TO ENABLE ATOMIC OPERATIONS!
                 #endif
             }
-        
+
         }else{
             // printf("idx is %d, has an invalid splatting_idx at position %d and the splatting idx is %d \n", idx, idx * (pos_dim + 1) + color, splatting_idx );
 
         }
 
     }
-    
+
 }
 
 template<int pos_dim, int val_full_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 blur(int n, float *newValues, int remainder,  HashTableGPU hash_table) {
 
@@ -996,7 +996,7 @@ blur(int n, float *newValues, int remainder,  HashTableGPU hash_table) {
     int np[pos_dim + 1];
     int nm[pos_dim + 1];
 
-    
+
     //store the values of this current lattice vertex (the one at the center of the kernel)
     float *valMe = hash_table.m_values + val_full_dim * idx;
     float *valOut = newValues + val_full_dim * idx;
@@ -1037,7 +1037,7 @@ blur(int n, float *newValues, int remainder,  HashTableGPU hash_table) {
 }
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 convolve(int n, float *newValues, const float* filter_bank, const int nr_filters, const int filter_extent, HashTableGPU hash_table) {
 
@@ -1062,7 +1062,7 @@ convolve(int n, float *newValues, const float* filter_bank, const int nr_filters
     int np[pos_dim + 1];
     int nm[pos_dim + 1];
 
-    
+
     //store the values of this current lattice vertex (the one at the center of the kernel)
     float *valMe = hash_table.m_values + (val_dim+1) * idx;
     float *valOut = newValues + (nr_filters+1) * idx;
@@ -1165,14 +1165,14 @@ convolve(int n, float *newValues, const float* filter_bank, const int nr_filters
     // // printf(" idx %d !\n", idx);
     // for (int i = 0; i < val_dim+1; i++){
     //     valOut[i] = 0.25 * valNp[i] + 0.5 * valMe[i] + 0.25 * valNm[i];
-    
+
     // }
 
 }
 
 
 template<int pos_dim, int val_dim, int filter_extent>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int dilation, HashTableGPU hash_table_query, HashTableGPU hash_table_neighbours, const int query_lvl, const int neighbours_lvl, const bool use_center_vertex_from_lattice_neigbhours, bool flip_neighbours, bool debug_kernel) {
 
@@ -1191,7 +1191,7 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
 
     float val_out_local[val_dim]{0}; //we store the convolved vertex output here first because this will get stored as a register and then we finally copy it to global memory in the val_out_cur_vertex
 
-    
+
 
     // int row_size=filter_extent*val_dim; // each row contains a patch around the current lattice vertex that contains the values of all the neighbours in the filter extent (and the center vertex)
     float *val_out_cur_vertex = values_out + val_dim * idx;
@@ -1207,11 +1207,11 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
     key_query_float[pos_dim]= -key_sum;
 
 
-    int lvl_diff=query_lvl-neighbours_lvl; 
-    float scale=pow(2.0f, (float)lvl_diff); 
+    int lvl_diff=query_lvl-neighbours_lvl;
+    float scale=pow(2.0f, (float)lvl_diff);
     // printf("scale is %f \n", scale);
     for (int i = 0; i < pos_dim+1; i++) {
-        key_query_float[i] = key_query_float[i]*scale; 
+        key_query_float[i] = key_query_float[i]*scale;
     }
     // printf("scaled key at idx %d is %f  %f  %f %f  \n",idx, key_query[0],key_query[1],key_query[2], key_query[3]);
 
@@ -1220,7 +1220,7 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
     // }
 
 
-    //if the scale is smaller than 1.0 it means we are in a fine scale which we are trying to embedd in a coarser one. Therefore we are multiplying the keys by 0.5 and then moving in each axis by 0.5. However this division by 2 may still create integer key so when moving by 0.5 in a direction we will end up with fractional key. These keys that are stil integers correspond with vertices from the fine that lie directly on top of the coarse vertex when dividing then by 2. But when we convolve over the coarse vertices these are not taken into account which may be a mistake. Either way for the moment we shall ignore them 
+    //if the scale is smaller than 1.0 it means we are in a fine scale which we are trying to embedd in a coarser one. Therefore we are multiplying the keys by 0.5 and then moving in each axis by 0.5. However this division by 2 may still create integer key so when moving by 0.5 in a direction we will end up with fractional key. These keys that are stil integers correspond with vertices from the fine that lie directly on top of the coarse vertex when dividing then by 2. But when we convolve over the coarse vertices these are not taken into account which may be a mistake. Either way for the moment we shall ignore them
     bool has_all_coords_integer=true;
     if(scale<1.0){
        has_all_coords_integer=are_all_coords_integer(key_query_float, pos_dim+1);
@@ -1237,12 +1237,12 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
     //     printf("nr_coords_integer_val is %d \n", nr_coords_integer_val);
     //     printf("scaled key at idx %d is %f  %f  %f %f  \n",idx, key_query_float[0],key_query_float[1],key_query_float[2], key_query_float[3]);
     // }
-    
 
 
 
 
-    
+
+
 
 
     int np[pos_dim + 1];
@@ -1261,7 +1261,7 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
     // printf("val_full_dim is %d\n", val_full_dim);
 
 
-    
+
     //store the values of this current lattice vertex (the one at the center of the kernel)
     // float zeros[val_dim]{0};
     float* valMe ;
@@ -1270,10 +1270,10 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
     for (int i = 0; i < pos_dim+1; i++) {
         key_query_int[i] = round(key_query_float[i]);
     }
-    
+
     //if we have fractional coords it means we are in a fine lattice which is embeddeed in a coarser one. So the keys were multiplied by 0.5 or something like that. That means that we will not find any center vertex
     if(use_center_vertex_from_lattice_neigbhours && has_all_coords_integer){
-        int query_offset = hash_table_neighbours.retrieve(key_query_int); 
+        int query_offset = hash_table_neighbours.retrieve(key_query_int);
         if(query_offset>=0){
             valMe = hash_table_neighbours.m_values + val_dim * query_offset;
             center_vertex_has_valid_value=true;
@@ -1314,7 +1314,7 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
         for(int axis=0; axis<nr_axes; axis++){
             //for each axis we have 2 neighbours
 
-            // //chekc first if the neigbhours have integer coords 
+            // //chekc first if the neigbhours have integer coords
             // for (int i = 0; i < pos_dim+1; i++) {
             //     np_float[i] = key_query_float[i] + movement_multiplier*dilation;
             //     nm_float[i] = key_query_float[i] - movement_multiplier*dilation;
@@ -1346,7 +1346,7 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
                 nm[axis] = round(key_query_float[axis] + movement_multiplier*dilation*pos_dim);
             }else{
                 //the pos dim+1 is odd which means that the key_query_float after scaling can be something like 0.5, 0.5, 1.0. Now if we move with a movement_multiplied of 0.5 we end up with non integer key. We should double check for that. This doesnt happen in the case when pos_dim+1 is even because then we can always get a coordinate vector that sums to zero without having fractional coordinates.
-                //chekc first if the neigbhours have integer coords 
+                //chekc first if the neigbhours have integer coords
                 for (int i = 0; i < pos_dim+1; i++) {
                     np_float[i] = key_query_float[i] + movement_multiplier*dilation;
                     nm_float[i] = key_query_float[i] - movement_multiplier*dilation;
@@ -1365,7 +1365,7 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
                     nm[i] = round(nm_float[i]);
                 }
             }
-            
+
 
             int offNp =-1;
             int offNm =-1;
@@ -1441,7 +1441,7 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
         // printf("didn't find any neigbhours for key at idx %d, dilation %d with key %f  %f  %f %f  \n",idx, dilation, key_query[0],key_query[1],key_query[2], key_query[3]);
     }
 
-    int idx_within_row= val_dim*nr_immediate_neigbhours; //we skip the values of all the neighbours that we stored in the row and now we are pointing to the position in the row where we can write 
+    int idx_within_row= val_dim*nr_immediate_neigbhours; //we skip the values of all the neighbours that we stored in the row and now we are pointing to the position in the row where we can write
     //store the values of the center vertex
     if(center_vertex_has_valid_value){
         #pragma unroll
@@ -1462,14 +1462,14 @@ depthwise_convolve(int nr_vertices, float* values_out, float* filter_bank, int d
 }
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, HashTableGPU hash_table_query, HashTableGPU hash_table_neighbours, const int query_lvl, const int neighbours_lvl,  bool flip_neighbours, bool debug_kernel) {
 
     const int idx = blockIdx.x * blockDim.x + threadIdx.x; //each thread will deal with a lattice vertex
     if (idx >= nr_vertices) return;
     if (idx >= *hash_table_query.m_nr_filled) return;
-    
+
 
     int row_size=filter_extent*val_dim; // each row contains a patch around the current lattice vertex that contains the values of all the neighbours in the filter extent (and the center vertex)
     float *row_out = im2row_out + row_size * idx;
@@ -1485,11 +1485,11 @@ im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, Hash
     key_query_float[pos_dim]= -key_sum;
 
 
-    int lvl_diff=query_lvl-neighbours_lvl; 
-    float scale=pow(2.0f, (float)lvl_diff); 
+    int lvl_diff=query_lvl-neighbours_lvl;
+    float scale=pow(2.0f, (float)lvl_diff);
     // printf("scale is %f \n", scale);
     for (int i = 0; i < pos_dim+1; i++) {
-        key_query_float[i] = key_query_float[i]*scale; 
+        key_query_float[i] = key_query_float[i]*scale;
     }
     // printf("scaled key at idx %d is %f  %f  %f %f  \n",idx, key_query[0],key_query[1],key_query[2], key_query[3]);
 
@@ -1498,7 +1498,7 @@ im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, Hash
     // }
 
 
-    //if the scale is smaller than 1.0 it means we are in a fine scale which we are trying to embedd in a coarser one. Therefore we are multiplying the keys by 0.5 and then moving in each axis by 0.5. However this division by 2 may still create integer key so when moving by 0.5 in a direction we will end up with fractional key. These keys that are stil integers correspond with vertices from the fine that lie directly on top of the coarse vertex when dividing then by 2. But when we convolve over the coarse vertices these are not taken into account which may be a mistake. Either way for the moment we shall ignore them 
+    //if the scale is smaller than 1.0 it means we are in a fine scale which we are trying to embedd in a coarser one. Therefore we are multiplying the keys by 0.5 and then moving in each axis by 0.5. However this division by 2 may still create integer key so when moving by 0.5 in a direction we will end up with fractional key. These keys that are stil integers correspond with vertices from the fine that lie directly on top of the coarse vertex when dividing then by 2. But when we convolve over the coarse vertices these are not taken into account which may be a mistake. Either way for the moment we shall ignore them
     bool has_all_coords_integer=true;
     if(scale<1.0){
        has_all_coords_integer=are_all_coords_integer(key_query_float, pos_dim+1);
@@ -1519,7 +1519,7 @@ im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, Hash
         // printf("scale is %f \n", scale);
     }
 
-    
+
     //store the values of this current lattice vertex (the one at the center of the kernel)
     // float zeros[val_dim]{0};
     float* valMe ;
@@ -1528,11 +1528,11 @@ im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, Hash
     for (int i = 0; i < pos_dim+1; i++) {
         key_query_int[i] = round(key_query_float[i]);
     }
-    
+
     //if we have fractional coords it means we are in a fine lattice which is embeddeed in a coarser one. So the keys were multiplied by 0.5 or something like that. That means that we will not find any center vertex
     // if(use_center_vertex_from_lattice_neigbhours && has_all_coords_integer){
     if(has_all_coords_integer){
-        int query_offset = hash_table_neighbours.retrieve(key_query_int); 
+        int query_offset = hash_table_neighbours.retrieve(key_query_int);
         if(query_offset>=0){
             valMe = hash_table_neighbours.m_values + val_dim * query_offset; //the hash_table_neighbours can actually be pointing to the one of the current lattice
             center_vertex_has_valid_value=true;
@@ -1580,7 +1580,7 @@ im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, Hash
                 nm[axis] = round(key_query_float[axis] + movement_multiplier*dilation*pos_dim);
             }else{
                 //the pos dim+1 is odd which means that the key_query_float after scaling can be something like 0.5, 0.5, 1.0. Now if we move with a movement_multiplied of 0.5 we end up with non integer key. We should double check for that. This doesnt happen in the case when pos_dim+1 is even because then we can always get a coordinate vector that sums to zero without having fractional coordinates.
-                //chekc first if the neigbhours have integer coords 
+                //chekc first if the neigbhours have integer coords
                 for (int i = 0; i < pos_dim+1; i++) {
                     np_float[i] = key_query_float[i] + movement_multiplier*dilation;
                     nm_float[i] = key_query_float[i] - movement_multiplier*dilation;
@@ -1599,7 +1599,7 @@ im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, Hash
                     nm[i] = round(nm_float[i]);
                 }
             }
-            
+
 
             int offNp =-1;
             int offNm =-1;
@@ -1673,7 +1673,7 @@ im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, Hash
         // printf("didn't find any neigbhours for key at idx %d, dilation %d with key %f  %f  %f %f  \n",idx, dilation, key_query[0],key_query[1],key_query[2], key_query[3]);
     }
 
-    int idx_within_row= val_dim*nr_immediate_neigbhours; //we skip the values of all the neighbours that we stored in the row and now we are pointing to the position in the row where we can write 
+    int idx_within_row= val_dim*nr_immediate_neigbhours; //we skip the values of all the neighbours that we stored in the row and now we are pointing to the position in the row where we can write
     //store the values of the center vertex
     if(center_vertex_has_valid_value){
         #pragma unroll
@@ -1688,14 +1688,14 @@ im2row(int nr_vertices, float* im2row_out, int filter_extent, int dilation, Hash
 }
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation, HashTableGPU hash_table_query, HashTableGPU hash_table_neighbours, const int query_lvl, const int neighbours_lvl,  bool flip_neighbours, bool debug_kernel) {
 
     const int idx = blockIdx.x * blockDim.x + threadIdx.x; //each thread will deal with a lattice vertex
     if (idx >= nr_vertices) return;
     if (idx >= *hash_table_query.m_nr_filled) return;
-    
+
 
     int row_size=filter_extent*val_dim; // each row contains a patch around the current lattice vertex that contains the values of all the neighbours in the filter extent (and the center vertex)
     int *row_out = im2row_out + row_size * idx;
@@ -1711,11 +1711,11 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
     key_query_float[pos_dim]= -key_sum;
 
 
-    int lvl_diff=query_lvl-neighbours_lvl; 
-    float scale=pow(2.0f, (float)lvl_diff); 
+    int lvl_diff=query_lvl-neighbours_lvl;
+    float scale=pow(2.0f, (float)lvl_diff);
     // printf("scale is %f \n", scale);
     for (int i = 0; i < pos_dim+1; i++) {
-        key_query_float[i] = key_query_float[i]*scale; 
+        key_query_float[i] = key_query_float[i]*scale;
     }
     // printf("scaled key at idx %d is %f  %f  %f %f  \n",idx, key_query[0],key_query[1],key_query[2], key_query[3]);
 
@@ -1724,7 +1724,7 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
     // }
 
 
-    //if the scale is smaller than 1.0 it means we are in a fine scale which we are trying to embedd in a coarser one. Therefore we are multiplying the keys by 0.5 and then moving in each axis by 0.5. However this division by 2 may still create integer key so when moving by 0.5 in a direction we will end up with fractional key. These keys that are stil integers correspond with vertices from the fine that lie directly on top of the coarse vertex when dividing then by 2. But when we convolve over the coarse vertices these are not taken into account which may be a mistake. Either way for the moment we shall ignore them 
+    //if the scale is smaller than 1.0 it means we are in a fine scale which we are trying to embedd in a coarser one. Therefore we are multiplying the keys by 0.5 and then moving in each axis by 0.5. However this division by 2 may still create integer key so when moving by 0.5 in a direction we will end up with fractional key. These keys that are stil integers correspond with vertices from the fine that lie directly on top of the coarse vertex when dividing then by 2. But when we convolve over the coarse vertices these are not taken into account which may be a mistake. Either way for the moment we shall ignore them
     bool has_all_coords_integer=true;
     if(scale<1.0){
        has_all_coords_integer=are_all_coords_integer(key_query_float, pos_dim+1);
@@ -1745,7 +1745,7 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
         // printf("scale is %f \n", scale);
     }
 
-    
+
     //store the values of this current lattice vertex (the one at the center of the kernel)
     // float zeros[val_dim]{0};
     //float* valMe ;
@@ -1754,11 +1754,11 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
     for (int i = 0; i < pos_dim+1; i++) {
         key_query_int[i] = round(key_query_float[i]);
     }
-    
+
     //if we have fractional coords it means we are in a fine lattice which is embeddeed in a coarser one. So the keys were multiplied by 0.5 or something like that. That means that we will not find any center vertex
     // if(use_center_vertex_from_lattice_neigbhours && has_all_coords_integer){
     if(has_all_coords_integer){
-        int query_offset = hash_table_neighbours.retrieve(key_query_int); 
+        int query_offset = hash_table_neighbours.retrieve(key_query_int);
         if(query_offset>=0){
             //valMe = hash_table_neighbours.m_values + val_dim * query_offset; //the hash_table_neighbours can actually be pointing to the one of the current lattice
             center_vertex_has_valid_value=true;
@@ -1779,7 +1779,7 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
         should_check_neighbours=true; //We have a fractional key, but when checking the neigbhours we will move by 0.5 and therefore end up with an integer key
     }
 
-    //int neighbor_not_found_counter = 0; 
+    //int neighbor_not_found_counter = 0;
 
     int nr_immediate_neigbhours=2*(pos_dim+1);
     const int nr_axes=pos_dim+1;
@@ -1806,7 +1806,7 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
                 nm[axis] = round(key_query_float[axis] + movement_multiplier*dilation*pos_dim);
             }else{
                 //the pos dim+1 is odd which means that the key_query_float after scaling can be something like 0.5, 0.5, 1.0. Now if we move with a movement_multiplied of 0.5 we end up with non integer key. We should double check for that. This doesnt happen in the case when pos_dim+1 is even because then we can always get a coordinate vector that sums to zero without having fractional coordinates.
-                //chekc first if the neigbhours have integer coords 
+                //chekc first if the neigbhours have integer coords
                 for (int i = 0; i < pos_dim+1; i++) {
                     np_float[i] = key_query_float[i] + movement_multiplier*dilation;
                     nm_float[i] = key_query_float[i] - movement_multiplier*dilation;
@@ -1825,7 +1825,7 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
                     nm[i] = round(nm_float[i]);
                 }
             }
-            
+
 
             int offNp =-1;
             int offNm =-1;
@@ -1903,7 +1903,7 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
         // printf("didn't find any neigbhours for key at idx %d, dilation %d with key %f  %f  %f %f  \n",idx, dilation, key_query[0],key_query[1],key_query[2], key_query[3]);
     }
 
-    int idx_within_row= val_dim*nr_immediate_neigbhours; //we skip the values of all the neighbours that we stored in the row and now we are pointing to the position in the row where we can write 
+    int idx_within_row= val_dim*nr_immediate_neigbhours; //we skip the values of all the neighbours that we stored in the row and now we are pointing to the position in the row where we can write
     //store the values of the center vertex
     if(center_vertex_has_valid_value){
         int offCenter = hash_table_neighbours.retrieve(key_query_int);
@@ -1920,7 +1920,7 @@ im2rowindices(int nr_vertices, int* im2row_out, int filter_extent, int dilation,
 }
 
 template<int pos_dim, int val_full_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 test_row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTableGPU hash_table_query, HashTableGPU hash_table_neighbours, const int query_lvl, const int neighbours_lvl, const bool use_center_vertex) {
 
@@ -1942,7 +1942,7 @@ test_row2im(int capacity, float* im2row_in, int filter_extent, int dilation, Has
     // # :------+------:
     // # | L3V1 | L3V2 |
     // # '------'------
-    //may get rowified like this 
+    //may get rowified like this
     // # .------.------.------.------.------.------.------.------.------.------.------.------.-------.------.
     // # | 0    | 0    | L3V1 | L3V2 | 0    | 0    | 0    | 0    | L2V1 | L2V2 | 0    | 0    | L1V1  | L1V2 |
     // # :------+------+------+------+------+------+------+------+------+------+------+------+-------+------:
@@ -1950,7 +1950,7 @@ test_row2im(int capacity, float* im2row_in, int filter_extent, int dilation, Has
     // # :------+------+------+------+------+------+------+------+------+------+------+------+-------+------:
     // # | L1V1 | L1V2 | 0    | 0    | L2V1 | L2V2 | 0    | 0    | 0    | 0    | 0    | 0    | L3V1  | L3V2 |
     // # '------'------'------'------'------'------'------'------'------'------'------'------'-------'------'
-    //not to go back to the original values we could just grab the last 2 columns but since the main usage of row2im is agregation of errors for the backwards pass, we will sum the elements that are duplicated. So to get the lattice values at elements (0,0) so the position of L1V1 we will sum in the lattice rowified over the positions (0,13), (1,11) and (2,0) which is all the places where L1V1 got copied. 
+    //not to go back to the original values we could just grab the last 2 columns but since the main usage of row2im is agregation of errors for the backwards pass, we will sum the elements that are duplicated. So to get the lattice values at elements (0,0) so the position of L1V1 we will sum in the lattice rowified over the positions (0,13), (1,11) and (2,0) which is all the places where L1V1 got copied.
     //to get this we calculate for lattice vertex, the neigbhour and we now that those neighbours will be responsible of adding MyValue on their corresponding row. We have to find out on which position on the row of the neighbour MyVlue will be copied into and sum over the val_full_dim values that are there
 
     int row_size=filter_extent*val_full_dim; // each row contains a patch around the current lattice vertex that contains the values of all the neighbours in the filter extent (and the center vertex)
@@ -1972,15 +1972,15 @@ test_row2im(int capacity, float* im2row_in, int filter_extent, int dilation, Has
         scale*=2;
     }
     for (int i = 0; i < pos_dim+1; i++) {
-        key_query[i] = key_query[i]*scale; 
+        key_query[i] = key_query[i]*scale;
     }
-    
+
 
 
     int np[pos_dim + 1];
     int nm[pos_dim + 1];
 
-    
+
     //store the values of this current lattice vertex (the one at the center of the kernel)
     float *val_me_out = hash_table_query.m_values + val_full_dim * idx;
 
@@ -2013,7 +2013,7 @@ test_row2im(int capacity, float* im2row_in, int filter_extent, int dilation, Has
             //to ge the position inside the row:
             //we know that the neigbhour will see the current vertex which lies on the same axis so the axis_idx will be the same, now we only have to decide if it's the positive neigbhour or the negative one
             //Since the neigbhour is my positive one (np) then for the neighbour I am the negative one Nm
-            //Therefore the start position within the row where I will start to find my values will be at 
+            //Therefore the start position within the row where I will start to find my values will be at
             float *row = im2row_in + row_size * offNp; //this is the row where we will find our value
             int idx_within_row= val_full_dim*axis*2 + 1*val_full_dim;  //we have 2 neighbour per row and each have val_full_dim, and we should skip axis_idx nr of them. The +1*Val_full_dum is because we skip one more value chunk because this vertex will be seen as Nm for the neigbhour
 
@@ -2027,7 +2027,7 @@ test_row2im(int capacity, float* im2row_in, int filter_extent, int dilation, Has
             //in the case of row2im we would have to summ all the start_of_my_values into val_me_out
 
         }
-      
+
 
         //neighbour 2
         if(offNm >= 0){
@@ -2048,9 +2048,9 @@ test_row2im(int capacity, float* im2row_in, int filter_extent, int dilation, Has
 
     if(use_center_vertex){
         // printf("testing the center vertex\n");
-        //on the current row we also store the values of the vertex 
+        //on the current row we also store the values of the vertex
         float *row = im2row_in + row_size * idx; //this is the row where we will find our value
-        int idx_within_row= row_size - val_full_dim; 
+        int idx_within_row= row_size - val_full_dim;
         float* start_of_my_values=row + idx_within_row;
         for (int i = 0; i < val_full_dim; i++){
             if(val_me_out[i] != start_of_my_values[i]){
@@ -2065,7 +2065,7 @@ test_row2im(int capacity, float* im2row_in, int filter_extent, int dilation, Has
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTableGPU hash_table_query, HashTableGPU hash_table_neighbours, const int query_lvl, const int neighbours_lvl, const bool do_test) {
 
@@ -2091,7 +2091,7 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
     // # :------+------:
     // # | L3V1 | L3V2 |
     // # '------'------
-    //may get rowified like this 
+    //may get rowified like this
     // # .------.------.------.------.------.------.------.------.------.------.------.------.-------.------.
     // # | 0    | 0    | L3V1 | L3V2 | 0    | 0    | 0    | 0    | L2V1 | L2V2 | 0    | 0    | L1V1  | L1V2 |
     // # :------+------+------+------+------+------+------+------+------+------+------+------+-------+------:
@@ -2099,7 +2099,7 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
     // # :------+------+------+------+------+------+------+------+------+------+------+------+-------+------:
     // # | L1V1 | L1V2 | 0    | 0    | L2V1 | L2V2 | 0    | 0    | 0    | 0    | 0    | 0    | L3V1  | L3V2 |
     // # '------'------'------'------'------'------'------'------'------'------'------'------'-------'------'
-    //not to go back to the original values we could just grab the last 2 columns but since the main usage of row2im is agregation of errors for the backwards pass, we will sum the elements that are duplicated. So to get the lattice values at elements (0,0) so the position of L1V1 we will sum in the lattice rowified over the positions (0,13), (1,11) and (2,0) which is all the places where L1V1 got copied. 
+    //not to go back to the original values we could just grab the last 2 columns but since the main usage of row2im is agregation of errors for the backwards pass, we will sum the elements that are duplicated. So to get the lattice values at elements (0,0) so the position of L1V1 we will sum in the lattice rowified over the positions (0,13), (1,11) and (2,0) which is all the places where L1V1 got copied.
     //to get this we calculate for lattice vertex, the neigbhour and we now that those neighbours will be responsible of adding MyValue on their corresponding row. We have to find out on which position on the row of the neighbour MyVlue will be copied into and sum over the val_full_dim values that are there
 
 
@@ -2117,16 +2117,16 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
     key_query_float[pos_dim]= -key_sum;
 
 
-    int lvl_diff=query_lvl-neighbours_lvl; 
-    float scale=pow(2.0f, (float)lvl_diff); 
+    int lvl_diff=query_lvl-neighbours_lvl;
+    float scale=pow(2.0f, (float)lvl_diff);
     // printf("scale is %f \n", scale);
     for (int i = 0; i < pos_dim+1; i++) {
-        key_query_float[i] = key_query_float[i]*scale; 
+        key_query_float[i] = key_query_float[i]*scale;
     }
     // printf("scaled key at idx %d is %f  %f  %f %f  \n",idx, key_query[0],key_query[1],key_query[2], key_query[3]);
 
 
-    //if the scale is smaller than 1.0 it means we are in a fine scale which we are trying to embedd in a coarser one. Therefore we are multiplying the keys by 0.5 and then moving in each axis by 0.5. However this division by 2 may still create integer key so when moving by 0.5 in a direction we will end up with fractional key. These keys that are stil integers correspond with vertices from the fine that lie directly on top of the coarse vertex when dividing then by 2. But when we convolve over the coarse vertices these are not taken into account which may be a mistake. Either way for the moment we shall ignore them 
+    //if the scale is smaller than 1.0 it means we are in a fine scale which we are trying to embedd in a coarser one. Therefore we are multiplying the keys by 0.5 and then moving in each axis by 0.5. However this division by 2 may still create integer key so when moving by 0.5 in a direction we will end up with fractional key. These keys that are stil integers correspond with vertices from the fine that lie directly on top of the coarse vertex when dividing then by 2. But when we convolve over the coarse vertices these are not taken into account which may be a mistake. Either way for the moment we shall ignore them
     bool has_all_coords_integer=true;
     if(scale<1.0){
        has_all_coords_integer=are_all_coords_integer(key_query_float, pos_dim+1);
@@ -2146,10 +2146,10 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
     for (int i = 0; i < pos_dim+1; i++) {
         key_query_int[i] = round(key_query_float[i]);
     }
-    
+
     // //if we have fractional coords it means we are in a fine lattice which is embeddeed in a coarser one. So the keys were multiplied by 0.5 or something like that. That means that we will not find any center vertex
     // if(use_center_vertex_from_lattice_neigbhours && has_all_coords_integer){
-    //     int query_offset = hash_table_neighbours.retrieve(key_query_int); 
+    //     int query_offset = hash_table_neighbours.retrieve(key_query_int);
     //     if(query_offset>=0){
     //         valMe = hash_table_neighbours.m_values + val_full_dim * query_offset;
     //         center_vertex_has_valid_value=true;
@@ -2173,7 +2173,7 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
 
 
 
-    
+
     //store the values of this current lattice vertex (the one at the center of the kernel)
     float *val_me_out = hash_table_query.m_values + val_dim * idx;
 
@@ -2212,7 +2212,7 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
                 //to ge the position inside the row:
                 //we know that the neigbhour will see the current vertex which lies on the same axis so the axis_idx will be the same, now we only have to decide if it's the positive neigbhour or the negative one
                 //Since the neigbhour is my positive one (np) then for the neighbour I am the negative one Nm
-                //Therefore the start position within the row where I will start to find my values will be at 
+                //Therefore the start position within the row where I will start to find my values will be at
                 float *row = im2row_in + row_size * offNp; //this is the row where we will find our value
                 int idx_within_row= val_dim*axis*2 + 1*val_dim;  //we have 2 neighbour per row and each have val_full_dim, and we should skip axis_idx nr of them. The +1*Val_full_dum is because we skip one more value chunk because this vertex will be seen as Nm for the neigbhour
 
@@ -2231,7 +2231,7 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
                 //in the case of row2im we would have to summ all the start_of_my_values into val_me_out
 
             }
-        
+
 
             //neighbour 2
             if(offNm >= 0){
@@ -2255,20 +2255,20 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
 
         }
     }
-    
+
 
     // printf("inside row2im use_center_vertex is %d\n", use_center_vertex);
     // if(use_center_vertex){
     // printf("checking the center vertex\n");
-    //on the current row we also store the values of the vertex 
+    //on the current row we also store the values of the vertex
 
     //if we have fractional coords it means we are in a fine lattice which is embeddeed in a coarser one. So the keys were multiplied by 0.5 or something like that. That means that we will not find any center vertex
     // if(use_center_vertex_from_lattice_neigbhours && has_all_coords_integer){
     if(has_all_coords_integer){
-        int query_offset = hash_table_neighbours.retrieve(key_query_int); 
+        int query_offset = hash_table_neighbours.retrieve(key_query_int);
         if(query_offset>=0){
             float *row = im2row_in + row_size * query_offset; //this is the row where we will find our value
-            int idx_within_row= row_size - val_dim; 
+            int idx_within_row= row_size - val_dim;
             float* start_of_my_values=row + idx_within_row;
             for (int i = 0; i < val_dim; i++){
                 if(!do_test){
@@ -2284,7 +2284,7 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
     }
     // }else if (!use_center_vertex_from_lattice_neigbhours){
     //     float *row = im2row_in + row_size * idx; //this is the row where we will find our value
-    //     int idx_within_row= row_size - val_dim; 
+    //     int idx_within_row= row_size - val_dim;
     //     float* start_of_my_values=row + idx_within_row;
     //     for (int i = 0; i < val_dim; i++){
     //         // val_me_out[i]+=start_of_my_values[i];
@@ -2309,10 +2309,10 @@ row2im(int capacity, float* im2row_in, int filter_extent, int dilation, HashTabl
 // __device__ float fracf(float x){
 //     return x - truncf(x);
 //     // return x - floor(x);
-// } 
+// }
 
 template<int pos_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 coarsen(int capacity, HashTableGPU fine_hash_table, HashTableGPU coarse_hash_table) {
 
@@ -2343,7 +2343,7 @@ coarsen(int capacity, HashTableGPU fine_hash_table, HashTableGPU coarse_hash_tab
     if(idx==100){
         // debug=true;
     }
-    
+
     //get each full (m_pos_dim+1) key of the fine_hash_table (in the hash table only the first m_pos_dim digits are stored because we know they have to sum up to 1)
     int fine_key[pos_dim + 1];
     int coord_sum=0;
@@ -2391,8 +2391,8 @@ coarsen(int capacity, HashTableGPU fine_hash_table, HashTableGPU coarse_hash_tab
     if(has_integer_coords){
     // if(true){
         // printf(" fine_key is %d,%d,%d,%d fine_keys_div is %d,%d,%d,%d\n", fine_key[0],fine_key[1],fine_key[2],fine_key[3] ,  fine_key_div[0],fine_key_div[1],fine_key_div[2],fine_key_div[3] );
-        coarse_hash_table.insert(fine_key_div); 
-        // coarse_hash_table.insert(fine_key); 
+        coarse_hash_table.insert(fine_key_div);
+        // coarse_hash_table.insert(fine_key);
 
 
         // printf("has integer coords \n");
@@ -2464,11 +2464,11 @@ coarsen(int capacity, HashTableGPU fine_hash_table, HashTableGPU coarse_hash_tab
 
 
                 //the dumbest way to check why it does weird thing is to just insert all the neighbours directl, the lattice vertices should still be lower because we only take the neighbours of the vertices that have integer coords after division
-                
+
                 if(debug){
                     printf("inserting %d,%d,%d,%d\n",np[0],np[1],np[2],np[3] );
                 }
-                coarse_hash_table.insert(np); 
+                coarse_hash_table.insert(np);
             }
 
 
@@ -2501,7 +2501,7 @@ coarsen(int capacity, HashTableGPU fine_hash_table, HashTableGPU coarse_hash_tab
                 nm[axis] = fine_key_div[axis] + scale_modif_debug*1.0*pos_dim;
 
                 // printf("inserting %d,%d,%d,%d\n",np[0],np[1],np[2],np[3] );
-                coarse_hash_table.insert(nm); 
+                coarse_hash_table.insert(nm);
             }
 
 
@@ -2509,14 +2509,14 @@ coarsen(int capacity, HashTableGPU fine_hash_table, HashTableGPU coarse_hash_tab
 
 
     }
-   
+
 
 }
 
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 slice(const int n, float *values, int* splatting_indices, float* splatting_weights , HashTableGPU hash_table) {
 
@@ -2550,7 +2550,7 @@ slice(const int n, float *values, int* splatting_indices, float* splatting_weigh
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 slice_with_precomputation(const float* positions,  float* values, const int nr_positions, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -2581,7 +2581,7 @@ slice_with_precomputation(const float* positions,  float* values, const int nr_p
                 // printf("barycentric  %f \n", barycentric[remainder] );
             }
         }
-    
+
     }
 
 
@@ -2596,7 +2596,7 @@ slice_with_precomputation(const float* positions,  float* values, const int nr_p
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 slice_no_precomputation(const float* positions,  float* values, const int nr_positions, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -2608,7 +2608,7 @@ slice_no_precomputation(const float* positions,  float* values, const int nr_pos
     }
 
 
-    
+
     float elevated[pos_dim + 1];
     const float *position = positions + idx * pos_dim;
     elevate<pos_dim>(elevated, position);
@@ -2725,7 +2725,7 @@ slice_no_precomputation(const float* positions,  float* values, const int nr_pos
                 // printf("barycentric  %f \n", barycentric[remainder] );
             }
         }
-    
+
     }
 
     //divide by the homogeneous coord but only if the val_full_dim>1 because if it's 1 then the val_dim is 0 so we are left with nothing
@@ -2751,7 +2751,7 @@ slice_no_precomputation(const float* positions,  float* values, const int nr_pos
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 gather_no_precomputation(const float* positions,  float* gathered_values, const int nr_positions, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -2768,7 +2768,7 @@ gather_no_precomputation(const float* positions,  float* gathered_values, const 
     }
 
 
-    
+
     float elevated[pos_dim + 1];
     const float *position = positions + idx * pos_dim;
     elevate<pos_dim>(elevated, position);
@@ -2874,7 +2874,7 @@ gather_no_precomputation(const float* positions,  float* gathered_values, const 
             }
             gathered_row[idx_in_row+val_full_dim]=barycentric[remainder];
         }
-    
+
     }
 
 
@@ -2884,7 +2884,7 @@ gather_no_precomputation(const float* positions,  float* gathered_values, const 
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 gather_with_precomputation(const float* positions,  float* gathered_values, const int nr_positions, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -2919,7 +2919,7 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 
 
 
-       
+
 
 
     }
@@ -2929,7 +2929,7 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 }
 
 // template<int pos_dim, int val_full_dim>
-// __global__ void 
+// __global__ void
 // __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 // gather_elevated_no_precomputation(const int* keys,  float* gathered_values, const int nr_vertices, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table_to_gather_from, const int lattice_to_gather_from_lvl, const int elevated_verts_lvl) {
 
@@ -2951,11 +2951,11 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 //     elevated[pos_dim] = -key_sum;
 
 //     //in case the elevated verts and the hash table to slice from are at different lattice levels, we would need to scale them
-//     int lvl_diff=elevated_verts_lvl-lattice_to_gather_from_lvl; 
-//     float scale=pow(2.0f, (float)lvl_diff); 
+//     int lvl_diff=elevated_verts_lvl-lattice_to_gather_from_lvl;
+//     float scale=pow(2.0f, (float)lvl_diff);
 //     // printf("scale is %f \n", scale);
 //     for (int i = 0; i < pos_dim+1; i++) {
-//         elevated[i] = elevated[i]*scale; 
+//         elevated[i] = elevated[i]*scale;
 //     }
 
 
@@ -2963,7 +2963,7 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 //     int rem0[pos_dim + 1];
 //     int rank[pos_dim + 1];
 
-    
+
 
 
 //     // Find the closest 0-colored simplex through rounding
@@ -3058,7 +3058,7 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 //             }
 //             gathered_row[idx_in_row+val_full_dim]=barycentric[remainder];
 //         }
-    
+
 //     }
 
 
@@ -3066,7 +3066,7 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 // }
 
 // template<int pos_dim, int val_full_dim>
-// __global__ void 
+// __global__ void
 // __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 // slice_elevated_verts(float* values, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table_to_slice_from, HashTableGPU hash_table_elevated_verts, const int lattice_to_slice_from_lvl, const int elevated_verts_lvl) {
 
@@ -3077,7 +3077,7 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 //     }
 
 
-    
+
 //     float elevated[pos_dim + 1];
 //     const int *key_elevated_vert = hash_table_elevated_verts.m_keys + idx * pos_dim;
 //     //get the elevated key which is just the full m_pos_dim+1 key
@@ -3089,11 +3089,11 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 //     elevated[pos_dim] = -key_sum;
 
 //     //in case the elevated verts and the hash table to slice from are at different lattice levels, we would need to scale them
-//     int lvl_diff=elevated_verts_lvl-lattice_to_slice_from_lvl; 
-//     float scale=pow(2.0f, (float)lvl_diff); 
+//     int lvl_diff=elevated_verts_lvl-lattice_to_slice_from_lvl;
+//     float scale=pow(2.0f, (float)lvl_diff);
 //     // printf("scale is %f \n", scale);
 //     for (int i = 0; i < pos_dim+1; i++) {
-//         elevated[i] = elevated[i]*scale; 
+//         elevated[i] = elevated[i]*scale;
 //     }
 
 
@@ -3194,7 +3194,7 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 //                 // printf("barycentric  %f \n", barycentric[remainder] );
 //             }
 //         }
-    
+
 //     }
 
 //     if(nr_vertices_allocated==0){
@@ -3224,7 +3224,7 @@ gather_with_precomputation(const float* positions,  float* gathered_values, cons
 
 
 template<int pos_dim, int val_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 slice_classify_no_precomputation(const float* positions,  float* class_logits, const float* delta_weights, const float* linear_clasify_weight, const float* linear_clasify_bias, const int nr_classes, const int nr_positions, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -3235,7 +3235,7 @@ slice_classify_no_precomputation(const float* positions,  float* class_logits, c
     }
 
 
-    
+
     float elevated[pos_dim + 1];
     const float *position = positions + idx * pos_dim;
     elevate<pos_dim>(elevated, position);
@@ -3303,8 +3303,8 @@ slice_classify_no_precomputation(const float* positions,  float* class_logits, c
 
     const float* delta_weights_row=delta_weights+idx*(pos_dim+1); //delta_weights has shape nr_positions x (pos_dim+1)
 
-    
-    //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register 
+
+    //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register
     float delta_weights_row_vec[(pos_dim+1)];
     for (int j = 0; j < (pos_dim+1); j++) {
         delta_weights_row_vec[j]=delta_weights_row[j];
@@ -3345,14 +3345,14 @@ slice_classify_no_precomputation(const float* positions,  float* class_logits, c
                 // printf("delta weight is   %f \n", delta_weights_row[remainder] );
             }
         }
-    
+
     }
 
 
     //now the value need to pass through a linear layer
     float* logits_out_for_cur_position=class_logits+idx*nr_classes;//class_logits has shape nr_positions x nr_classes
 
-    //load the weights of the linear layers into shared mem 
+    //load the weights of the linear layers into shared mem
     __shared__ float linear_weights_shared[nr_classes*val_dim];
     if (threadIdx.x == 0 ){
         for (int i = 0; i < nr_classes*val_dim; i++) {
@@ -3377,7 +3377,7 @@ slice_classify_no_precomputation(const float* positions,  float* class_logits, c
         logits_out_for_cur_position[c]+=linear_clasify_bias[c];
     }
 
-  
+
 
 }
 
@@ -3385,7 +3385,7 @@ slice_classify_no_precomputation(const float* positions,  float* class_logits, c
 
 
 template<int pos_dim, int val_dim, int nr_classes>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 slice_classify_with_precomputation(const float* positions,  float* class_logits, const float* delta_weights, const float* linear_clasify_weight, const float* linear_clasify_bias, const int nr_positions, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -3406,7 +3406,7 @@ slice_classify_with_precomputation(const float* positions,  float* class_logits,
 
     const float* delta_weights_row=delta_weights+idx*(pos_dim+1); //delta_weights has shape nr_positions x (pos_dim+1)
 
-    //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register 
+    //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register
     float delta_weights_row_vec[(pos_dim+1)];
     for (int j = 0; j < (pos_dim+1); j++) {
         delta_weights_row_vec[j]=delta_weights_row[j];
@@ -3426,8 +3426,8 @@ slice_classify_with_precomputation(const float* positions,  float* class_logits,
 
         }
 
-  
-    
+
+
     }
 
     // return;
@@ -3436,7 +3436,7 @@ slice_classify_with_precomputation(const float* positions,  float* class_logits,
     float* logits_out_for_cur_position=class_logits+idx*nr_classes;//class_logits has shape nr_positions x nr_classes
 
 
-    //load the weights of the linear layers into shared mem 
+    //load the weights of the linear layers into shared mem
     __shared__ float linear_weights_shared[nr_classes*val_dim];
     if (threadIdx.x == 0 ){
         for (int i = 0; i < nr_classes*val_dim; i++) {
@@ -3459,13 +3459,13 @@ slice_classify_with_precomputation(const float* positions,  float* class_logits,
         logits_out_for_cur_position[c]+=linear_clasify_bias[c];
     }
 
-  
+
 
 }
 
 
 // template<int pos_dim, int val_dim>
-// __global__ void 
+// __global__ void
 // __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 // slice_backwards_with_precomputation(const int nr_positions, float* sliced_values_hom, float* grad_sliced_values, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -3508,12 +3508,12 @@ slice_classify_with_precomputation(const float* positions,  float* class_logits,
 //             //acumulate the values
 //             // float sum_values_homogeneous=0;
 //             for (int j = 0; j < val_dim; j++) {
-//                 float grad_local=weight/sliced_value_hom[val_dim]; //the gradient of the sliced value (and normalized) wrt to the lattice vertex 
+//                 float grad_local=weight/sliced_value_hom[val_dim]; //the gradient of the sliced value (and normalized) wrt to the lattice vertex
 //                 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 200)
 //                     // #warning CUDA ARCH IS FINE
 //                     atomicAdd(valOut +j, grad_sliced_val[j] * grad_local);
 //                     // atomicAdd(valOut +j, grad_sliced_val[j]*weight);
-//                 #else 
+//                 #else
 //                     #warning CUDA ARCH NEEDS TO BE AT LEAST 200 IN ORDER TO ENABLE ATOMIC OPERATIONS!
 //                 #endif
 //             }
@@ -3522,10 +3522,10 @@ slice_classify_with_precomputation(const float* positions,  float* class_logits,
 //             #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 200)
 //                 // #warning CUDA ARCH IS FINE
 //                 atomicAdd(valOut +val_dim, -weight * grad_hom_val);
-//             #else 
+//             #else
 //                 #warning CUDA ARCH NEEDS TO BE AT LEAST 200 IN ORDER TO ENABLE ATOMIC OPERATIONS!
 //             #endif
-        
+
 //         }
 
 //     }
@@ -3538,7 +3538,7 @@ slice_classify_with_precomputation(const float* positions,  float* class_logits,
 
 
 template<int pos_dim, int val_full_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 slice_backwards_with_precomputation_no_homogeneous(const int nr_positions, float* grad_sliced_values, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -3556,7 +3556,7 @@ slice_backwards_with_precomputation_no_homogeneous(const int nr_positions, float
     float *grad_sliced_val = grad_sliced_values + idx * val_full_dim;
     // printf("grad_sliced_val_is %f val_full_dim is %d\n",*grad_sliced_val, val_full_dim);
 
-    //we will need to splat this gradient to 4 vertices, instead of reading this gradient 4 times from memory, we just read it once in shared mem and then read it from there 
+    //we will need to splat this gradient to 4 vertices, instead of reading this gradient 4 times from memory, we just read it once in shared mem and then read it from there
     //we load BLOCK_SIZE vertices so a matrix of rows=BLOCK_SIZE and cols=val_dim
     // __shared__ float grad_sliced_val_shared[BLOCK_SIZE*val_full_dim];
     // int block_nr=blockIdx.x;
@@ -3570,13 +3570,13 @@ slice_backwards_with_precomputation_no_homogeneous(const int nr_positions, float
     // }
     // __syncthreads();
 
-    //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register 
+    //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register
     float grad_sliced_val_cur_pos[val_full_dim];
     for (int j = 0; j < val_full_dim; j++) {
         grad_sliced_val_cur_pos[j]=grad_sliced_val[j];
     }
 
-    
+
     for(int color=0; color<pos_dim+1; color++){
         // int index_into_m_entries=round(splatting_indices_and_weights[ idx * (pos_dim + 1)*2 + color*2 + 0]);
         int splatting_idx = splatting_indices[ idx * (pos_dim + 1) + color];
@@ -3599,12 +3599,12 @@ slice_backwards_with_precomputation_no_homogeneous(const int nr_positions, float
                     // atomicAdd(valOut +j, grad_sliced_val[j]*weight);
                     atomicAdd(valOut +j, grad_sliced_val_cur_pos[j]*weight);
                     // atomicAdd(valOut +j, grad_sliced_val_shared[j+threadIdx.x*val_full_dim]*weight);
-                #else 
+                #else
                     #warning CUDA ARCH NEEDS TO BE AT LEAST 200 IN ORDER TO ENABLE ATOMIC OPERATIONS!
                 #endif
             }
 
-        
+
         }else{
             // printf("splatting idx is not valid for idx %d\n", idx );
         }
@@ -3626,7 +3626,7 @@ slice_backwards_with_precomputation_no_homogeneous(const int nr_positions, float
 
 
 template<int pos_dim, int val_dim, int nr_classes>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 slice_classify_backwards_with_precomputation(const int nr_positions, float* grad_class_logits, float* initial_values, int* splatting_indices, float* splatting_weights, float* delta_weights, float* linear_clasify_weight, float* linear_clasify_bias, float* grad_lattice_values, float* grad_delta_weights, float* grad_linear_clasify_weight, float* grad_linear_clasify_bias,  HashTableGPU hash_table) {
 
@@ -3643,7 +3643,7 @@ slice_classify_backwards_with_precomputation(const int nr_positions, float* grad
 
 
 
-    //load the weights of the linear layers into shared mem 
+    //load the weights of the linear layers into shared mem
     // printf("trying to allocate shared memory of size %d \n", nr_classes*val_full_dim);
     __shared__ float linear_weights_shared[nr_classes*val_dim];
     if (threadIdx.x == 0 ){
@@ -3657,7 +3657,7 @@ slice_classify_backwards_with_precomputation(const int nr_positions, float* grad
     //each positions will splat onto pos_dim+1 vertices
     float *grad_class_logits_cur_position = grad_class_logits + idx * nr_classes;
 
-    //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register 
+    //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register
     float grad_class_logits_cur_position_vec[nr_classes];
     for (int j = 0; j < nr_classes; j++) {
         grad_class_logits_cur_position_vec[j]=grad_class_logits_cur_position[j];
@@ -3686,7 +3686,7 @@ slice_classify_backwards_with_precomputation(const int nr_positions, float* grad
                 }
                 atomicAdd(grad_lattice_vertex_out+v, grad);
             }
-        
+
         }
 
     }
@@ -3707,10 +3707,10 @@ slice_classify_backwards_with_precomputation(const int nr_positions, float* grad
                 sliced_value[v]+=vertex_value[v]*(splat_weight + splat_delta_weight);
                 // sliced_value[v]+=vertex_value[v]*(splat_delta_weight);
             }
-        
+
         }
     }
-    //Now we accumulate the gradient into the LINEAR CLASIFY WEIGHT 
+    //Now we accumulate the gradient into the LINEAR CLASIFY WEIGHT
     for (int c = 0; c < nr_classes; c++) {
         for (int v = 0; v < val_dim; v++) {
             // atomicAdd(grad_linear_clasify_weight+v +c*val_dim, sliced_value[v]*grad_class_logits_cur_position[c]);
@@ -3759,7 +3759,7 @@ slice_classify_backwards_with_precomputation(const int nr_positions, float* grad
 
 
 template<int pos_dim, int val_full_dim>
-__global__ void 
+__global__ void
 __launch_bounds__(BLOCK_SIZE) //since the block size is known at compile time we can specify it to the kernel and therefore cuda doesnt need to use heuristics based on code complexity to minimize registry usage
 gather_backwards_with_precomputation(const int nr_positions, float* grad_sliced_values, int* splatting_indices, float* splatting_weights,  HashTableGPU hash_table) {
 
@@ -3778,13 +3778,13 @@ gather_backwards_with_precomputation(const int nr_positions, float* grad_sliced_
     const int row_size_grad_sliced= (pos_dim+1)*(val_full_dim+1);
     float *grad_sliced_val = grad_sliced_values + idx * row_size_grad_sliced;
 
-     //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register 
+     //attempt 2 load into local memory which could be global but the optimizer might be smart and put it into register
     float grad_sliced_val_cur_pos[row_size_grad_sliced];
     for (int j = 0; j < row_size_grad_sliced; j++) {
         grad_sliced_val_cur_pos[j]=grad_sliced_val[j];
     }
 
-    
+
     for(int color=0; color<pos_dim+1; color++){
         int splatting_idx = splatting_indices[ idx * (pos_dim + 1) + color];
         if(splatting_idx>=0){
@@ -3800,12 +3800,12 @@ gather_backwards_with_precomputation(const int nr_positions, float* grad_sliced_
                     // atomicAdd(valOut +j, grad_sliced_val[j + idx_in_row]*weight );
                     atomicAdd(valOut +j, grad_sliced_val_cur_pos[j + idx_in_row]*weight );
                     // atomicAdd(valOut +j, grad_sliced_val[j + idx_in_row] );
-                #else 
+                #else
                     #warning CUDA ARCH NEEDS TO BE AT LEAST 200 IN ORDER TO ENABLE ATOMIC OPERATIONS!
                 #endif
             }
 
-        
+
         }else{
             // printf("splatting idx is not valid for idx %d\n", idx );
         }
@@ -3818,4 +3818,3 @@ gather_backwards_with_precomputation(const int nr_positions, float* grad_sliced_
 
 
 #endif
-

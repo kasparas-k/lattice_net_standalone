@@ -15,8 +15,15 @@ setup(
         CUDAExtension(
             name='latticenet',
             sources=['Lattice.cu',
-                     'HashTable.cu'],
-            extra_include_dirs=['/home/kasparas/Documents/pointcloud_nn/algorithms/myfork/lattice_net_standalone/include/lattice_net'],
+                     'HashTable.cu',
+                     'PyBridge.cxx'],
+            include_dirs=['/home/kasparas/Documents/pointcloud_nn/algorithms/myfork/lattice_net_standalone/include',
+                                '/home/kasparas/Documents/pointcloud_nn/algorithms/myfork/lattice_net_standalone/deps/include',
+                                '/home/kasparas/Documents/pointcloud_nn/algorithms/myfork/lattice_net_standalone/deps/',
+                                '/usr/include/eigen3',
+                                '/usr/include/opencv4'],
+            extra_compile_args=['-D PROJECT_SOURCE_DIR="/home/kasparas/Documents/pointcloud_nn/algorithms/myfork/lattice_net_standalone"',
+                                '-D CMAKE_SOURCE_DIR="/home/kasparas/Documents/pointcloud_nn/algorithms/myfork/lattice_net_standalone"'],
         )
     ],
     cmdclass={

@@ -1,8 +1,0 @@
-/home/kasparas/Documents/pointcloud_cnn/algorithms/myfork/lattice_net_standalone/CMakeFiles/latticenet.dir
-/home/kasparas/Documents/pointcloud_cnn/algorithms/myfork/lattice_net_standalone/CMakeFiles/latticenet_cu.dir
-/home/kasparas/Documents/pointcloud_cnn/algorithms/myfork/lattice_net_standalone/CMakeFiles/edit_cache.dir
-/home/kasparas/Documents/pointcloud_cnn/algorithms/myfork/lattice_net_standalone/CMakeFiles/rebuild_cache.dir
-/home/kasparas/Documents/pointcloud_cnn/algorithms/myfork/lattice_net_standalone/CMakeFiles/list_install_components.dir
-/home/kasparas/Documents/pointcloud_cnn/algorithms/myfork/lattice_net_standalone/CMakeFiles/install.dir
-/home/kasparas/Documents/pointcloud_cnn/algorithms/myfork/lattice_net_standalone/CMakeFiles/install/local.dir
-/home/kasparas/Documents/pointcloud_cnn/algorithms/myfork/lattice_net_standalone/CMakeFiles/install/strip.dir

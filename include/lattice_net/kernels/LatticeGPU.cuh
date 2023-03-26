@@ -16,7 +16,7 @@
 #ifndef __CUDACC_RTC__
 //Add this header after we add all cuda stuff because we need the profiler to have cudaDeviceSyncronize defined
 #define ENABLE_CUDA_PROFILING 1
-#include "Profiler.h"
+// #include "Profiler.h"
 #endif
 
 
@@ -41,7 +41,7 @@ public:
         // void splat_standalone(const float* positions, const float* values, const int nr_positions, const int pos_dim, const int val_dim, const float* splatting_indices_and_weights, const HashTableGPU& hash_table_gpu){
         void splat_standalone(const float* positions, const float* values, const int nr_positions, const int pos_dim, const int val_dim, const int* splatting_indices, const float* splatting_weights, const HashTableGPU& hash_table_gpu){
 
-            TIME_START("kernel_splat");
+            // TIME_START("kernel_splat");
             dim3 blocks((nr_positions - 1) / BLOCK_SIZE + 1, 1, 1);
             dim3 blockSize(BLOCK_SIZE, 1, 1);
             CUresult res_1= m_lattice_program.kernel("kernel_splat")
@@ -50,13 +50,13 @@ public:
                         // .launch( positions, values, nr_positions, splatting_indices_and_weights, hash_table_gpu );
                         .launch( positions, nr_positions, splatting_indices, splatting_weights, hash_table_gpu, true );
             cudaEventRecord (m_event_nr_vertices_lattice_changed);
-            TIME_END("kernel_splat");
+            // TIME_END("kernel_splat");
             CUDA_CHECK_CURESULT(res_1);
             CUDA_CHECK_ERROR();
 
 
 
-            TIME_START("splatCacheNaive");
+            // TIME_START("splatCacheNaive");
             blocks=dim3((nr_positions - 1) / BLOCK_SIZE + 1, 1, 1);
             blockSize=dim3(BLOCK_SIZE, 1, 1);
             CUresult res_2= m_lattice_program.kernel("splatCacheNaive")
@@ -64,7 +64,7 @@ public:
                         .configure(blocks, blockSize)
                         // .launch( nr_positions, values, splatting_indices_and_weights, hash_table_gpu );
                         .launch( nr_positions, values, splatting_indices, splatting_weights, hash_table_gpu );
-            TIME_END("splatCacheNaive");
+            // TIME_END("splatCacheNaive");
             CUDA_CHECK_CURESULT(res_2);
             CUDA_CHECK_ERROR()
 

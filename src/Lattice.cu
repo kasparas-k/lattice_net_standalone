@@ -29,7 +29,7 @@
 using namespace configuru;
 //Add this header after we add all cuda stuff because we need the profiler to have cudaDeviceSyncronize defined
 #define ENABLE_CUDA_PROFILING 1
-#include "Profiler.h"
+// #include "Profiler.h"
 
 //boost
 #include <boost/filesystem.hpp>
@@ -216,23 +216,23 @@ std::tuple<torch::Tensor, torch::Tensor> Lattice::splat_standalone(torch::Tensor
 
 
     //to cuda
-    TIME_START("upload_cuda");
+    // TIME_START("upload_cuda");
     positions_raw=positions_raw.to("cuda");
     values=values.to("cuda");
     m_sigmas_tensor=m_sigmas_tensor.to("cuda");
-    TIME_END("upload_cuda");
+    // TIME_END("upload_cuda");
 
-    TIME_START("scale_by_sigma");
+    // TIME_START("scale_by_sigma");
     Tensor positions=positions_raw/m_sigmas_tensor;
-    TIME_END("scale_by_sigma");
+    // TIME_END("scale_by_sigma");
 
-    TIME_START("splat");
+    // TIME_START("splat");
     m_impl->splat_standalone(positions.data_ptr<float>(), values.data_ptr<float>(), nr_positions, pos_dim, val_dim,
                             splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(),  *(m_hash_table->m_impl) );
     m_hash_table->m_nr_filled_is_dirty=true;
 
 
-    TIME_END("splat");
+    // TIME_END("splat");
 
     // VLOG(3) << "after splatting nr_verts is " << nr_lattice_vertices();
     auto ret = std::make_tuple (splatting_indices_tensor, splatting_weights_tensor );
@@ -688,9 +688,9 @@ std::shared_ptr<Lattice> Lattice::create_coarse_verts(){
     coarse_lattice->m_hash_table->clear();
     coarse_lattice->m_hash_table->update_impl();
 
-    TIME_START("coarsen");
+    // TIME_START("coarsen");
     m_impl->coarsen(capacity, pos_dim, *(m_hash_table->m_impl), *(coarse_lattice->m_hash_table->m_impl)  );
-    TIME_END("coarsen");
+    // TIME_END("coarsen");
 
     int nr_vertices=coarse_lattice->nr_lattice_vertices();
     VLOG(3) << "after coarsening nr_verts of the coarse lattice is " << nr_vertices;
@@ -753,15 +753,15 @@ torch::Tensor Lattice::slice_standalone_with_precomputation(torch::Tensor& posit
 
 
      //to cuda
-    TIME_START("upload_cuda");
+    // TIME_START("upload_cuda");
     positions_raw=positions_raw.to("cuda");
     m_sigmas_tensor=m_sigmas_tensor.to("cuda");
-    TIME_END("upload_cuda");
+    // TIME_END("upload_cuda");
 
-    TIME_START("scale_by_sigma");
+    // TIME_START("scale_by_sigma");
     VLOG(3) << "slice standalone scaling by a sigma of " << m_sigmas_tensor;
     Tensor positions=positions_raw/m_sigmas_tensor;
-    TIME_END("scale_by_sigma")
+    // TIME_END("scale_by_sigma")
 
     //initialize the output values to zero
     Tensor sliced_values_hom_tensor=torch::zeros({nr_positions, val_dim() }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
@@ -776,9 +776,9 @@ torch::Tensor Lattice::slice_standalone_with_precomputation(torch::Tensor& posit
 
 
 
-    TIME_START("slice");
+    // TIME_START("slice");
     m_impl->slice_standalone_with_precomputation( positions.data_ptr<float>(), sliced_values_hom_tensor.data_ptr<float>(), this->pos_dim(), this->val_dim(),  nr_positions, splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(), *(m_hash_table->m_impl) );
-    TIME_END("slice");
+    // TIME_END("slice");
 
 
     return sliced_values_hom_tensor;
@@ -796,15 +796,15 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::slice_standalon
 
 
      //to cuda
-    TIME_START("upload_cuda");
+    // TIME_START("upload_cuda");
     positions_raw=positions_raw.to("cuda");
     m_sigmas_tensor=m_sigmas_tensor.to("cuda");
-    TIME_END("upload_cuda");
+    // TIME_END("upload_cuda");
 
-    TIME_START("scale_by_sigma");
+    // TIME_START("scale_by_sigma");
     VLOG(3) << "slice standalone scaling by a sigma of " << m_sigmas_tensor;
     Tensor positions=positions_raw/m_sigmas_tensor;
-    TIME_END("scale_by_sigma")
+    // TIME_END("scale_by_sigma")
 
     //initialize the output values to zero
     Tensor sliced_values_hom_tensor=torch::zeros({nr_positions, val_dim() }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
@@ -818,9 +818,9 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::slice_standalon
     m_hash_table->update_impl();
 
 
-    TIME_START("slice");
+    // TIME_START("slice");
     m_impl->slice_standalone_no_precomputation( positions.data_ptr<float>(), sliced_values_hom_tensor.data_ptr<float>(), this->pos_dim(), this->val_dim(),  nr_positions, splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(), *(m_hash_table->m_impl) );
-    TIME_END("slice");
+    // TIME_END("slice");
 
 
     auto ret = std::make_tuple (sliced_values_hom_tensor, splatting_indices_tensor, splatting_weights_tensor );
@@ -842,15 +842,15 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::gather_standalo
 
 
      //to cuda
-    TIME_START("upload_cuda");
+    // TIME_START("upload_cuda");
     positions_raw=positions_raw.to("cuda");
     m_sigmas_tensor=m_sigmas_tensor.to("cuda");
-    TIME_END("upload_cuda");
+    // TIME_END("upload_cuda");
 
-    TIME_START("scale_by_sigma");
+    // TIME_START("scale_by_sigma");
     VLOG(3) << "gather standalone scaling by a sigma of " << m_sigmas_tensor;
     Tensor positions=positions_raw/m_sigmas_tensor;
-    TIME_END("scale_by_sigma")
+    // TIME_END("scale_by_sigma")
 
     //initialize the output values to zero
     int row_size_gathered=(pos_dim+1)*(val_dim()+1); //we have m_pos_dim+1 vertices in a lattice and each has values of m_val_full_dim plus a barycentric coord
@@ -864,9 +864,9 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> Lattice::gather_standalo
     m_hash_table->update_impl();
 
 
-    TIME_START("gather");
+    // TIME_START("gather");
     m_impl->gather_standalone_no_precomputation( positions.data_ptr<float>(), gathered_values_tensor.data_ptr<float>(), this->pos_dim(), this->val_dim(),  nr_positions, splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(), *(m_hash_table->m_impl) );
-    TIME_END("gather");
+    // TIME_END("gather");
 
     auto ret = std::make_tuple (gathered_values_tensor, splatting_indices_tensor, splatting_weights_tensor );
     return ret;
@@ -932,18 +932,18 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>  Lattice::slice_classify
 
 
      //to cuda
-    TIME_START("upload_cuda");
+    // TIME_START("upload_cuda");
     positions_raw=positions_raw.to("cuda");
     m_sigmas_tensor=m_sigmas_tensor.to("cuda");
     delta_weights=delta_weights.to("cuda");
     linear_clasify_weight=linear_clasify_weight.to("cuda");
     linear_clasify_bias=linear_clasify_bias.to("cuda");
-    TIME_END("upload_cuda");
+    // TIME_END("upload_cuda");
 
-    TIME_START("scale_by_sigma");
+    // TIME_START("scale_by_sigma");
     VLOG(3) << "slice standalone scaling by a sigma of " << m_sigmas_tensor;
     Tensor positions=positions_raw/m_sigmas_tensor;
-    TIME_END("scale_by_sigma")
+    // TIME_END("scale_by_sigma")
 
     //we store here the class logits directly
     Tensor sliced_values_hom_tensor=torch::zeros({nr_positions, nr_classes}, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) );
@@ -957,7 +957,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>  Lattice::slice_classify
     m_hash_table->update_impl();
 
 
-    TIME_START("slice_classify");
+    // TIME_START("slice_classify");
     m_impl->slice_classify_no_precomputation( positions.data_ptr<float>(),
                                               sliced_values_hom_tensor.data_ptr<float>(),
                                               delta_weights.data_ptr<float>(),
@@ -970,7 +970,7 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>  Lattice::slice_classify
                                               splatting_indices_tensor.data_ptr<int>(),
                                               splatting_weights_tensor.data_ptr<float>(),
                                               *(m_hash_table->m_impl) );
-    TIME_END("slice_classify");
+    // TIME_END("slice_classify");
 
     auto ret = std::make_tuple (sliced_values_hom_tensor, splatting_indices_tensor, splatting_weights_tensor );
     return ret;
@@ -1057,9 +1057,9 @@ void Lattice::slice_backwards_standalone_with_precomputation(torch::Tensor& posi
 
 
 
-    TIME_START("slice_back");
+    // TIME_START("slice_back");
     m_impl->slice_backwards_standalone_with_precomputation( sliced_values_hom.data_ptr<float>(), grad_sliced_values.data_ptr<float>(), splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(), this->pos_dim(), this->val_dim(), nr_positions, *(m_hash_table->m_impl) );
-    TIME_END("slice_back");
+    // TIME_END("slice_back");
 
 }
 
@@ -1081,9 +1081,9 @@ void Lattice::slice_backwards_standalone_with_precomputation_no_homogeneous(torc
 
 
 
-    TIME_START("slice_back");
+    // TIME_START("slice_back");
     m_impl->slice_backwards_standalone_with_precomputation_no_homogeneous(grad_sliced_values.data_ptr<float>(), splatting_indices_tensor.data_ptr<int>(), splatting_weights_tensor.data_ptr<float>(), this->pos_dim(), this->val_dim(), nr_positions, *(m_hash_table->m_impl) );
-    TIME_END("slice_back");
+    // TIME_END("slice_back");
 
 }
 

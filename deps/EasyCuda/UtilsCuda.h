@@ -19,6 +19,7 @@
 #include "opencv2/opencv.hpp"
 
 //loguru
+#define LOGURU_IMPLEMENTATION 1
 #define LOGURU_REPLACE_GLOG 1
 #include "loguru/loguru.hpp" //needs to be added after torch.h otherwise loguru stops printing for some reason
 

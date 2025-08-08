@@ -23,6 +23,7 @@
 #include "loguru/loguru.hpp" //needs to be added after torch.h otherwise loguru stops printing for some reason
 
 //configuru
+#define CONFIGURU_IMPLEMENTATION 1
 #define CONFIGURU_WITH_EIGEN 1
 #define CONFIGURU_IMPLICIT_CONVERSIONS 1
 #include "configuru/configuru.hpp"
@@ -30,12 +31,6 @@ using namespace configuru;
 //Add this header after we add all cuda stuff because we need the profiler to have cudaDeviceSyncronize defined
 #define ENABLE_CUDA_PROFILING 1
 // #include "Profiler.h"
-
-//boost
-#include <boost/filesystem.hpp>
-namespace fs = boost::filesystem;
-
-
 
 using torch::Tensor;
 using namespace radu::utils;
@@ -107,11 +102,7 @@ Lattice::~Lattice(){
 void Lattice::init_params(const std::string config_file){
     // Config cfg = configuru::parse_file(std::string(CMAKE_SOURCE_DIR)+"/config/"+config_file, CFG);
     std::string config_file_abs;
-    if (fs::path(config_file).is_relative()){
-        config_file_abs=(fs::path(PROJECT_SOURCE_DIR) / config_file).string();
-    }else{
-        config_file_abs=config_file;
-    }
+    config_file_abs=config_file;
     Config cfg = configuru::parse_file(config_file_abs, CFG);
     Config lattice_config=cfg["lattice_gpu"];
     int hash_table_capacity = lattice_config["hash_table_capacity"];

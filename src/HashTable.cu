@@ -1,9 +1,7 @@
 #include "lattice_net/HashTable.cuh"
 
 #include <cuda.h>
-// #include "torch/torch.h"
 
-//my stuff
 #include "lattice_net/kernels/HashTableGPU.cuh"
 
 
@@ -19,31 +17,14 @@ HashTable::HashTable(const int capacity):
 
 
 void HashTable::init(int pos_dim, int val_dim){
-
-    // CHECK()
-
-    // m_capacity=capacity;
-    // m_pos_dim=pos_dim;
     m_impl=std::make_shared<HashTableGPU>( m_capacity, pos_dim );
-
-    // m_keys_tensor=register_buffer("keys", torch::zeros({capacity, pos_dim}).to(torch::kInt32) ); //TODO should it be short so kInt16 as in the original implementation
-    // torch::zeros({m_capacity, pos_dim  }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0) )
     m_keys_tensor=register_buffer("keys",   torch::zeros({m_capacity, pos_dim  }, torch::dtype(torch::kInt32).device(torch::kCUDA, 0))    ); //TODO should it be short so kInt16 as in the original implementation
     m_values_tensor=register_buffer("values", torch::zeros({m_capacity, val_dim  }, torch::dtype(torch::kFloat32).device(torch::kCUDA, 0))   );
     m_entries_tensor=register_buffer("entries",   torch::zeros({m_capacity  }, torch::dtype(torch::kInt32).device(torch::kCUDA, 0))    );
     m_nr_filled_tensor=register_buffer("nr_filled", torch::zeros({1}, torch::dtype(torch::kInt32).device(torch::kCUDA, 0))  );
     m_nr_filled_is_dirty=true;
-
-    // m_keys_tensor=m_keys_tensor.to("cuda");
-    // m_values_tensor=m_values_tensor.to("cuda");
-    // m_entries_tensor=m_entries_tensor.to("cuda");
-    // m_nr_filled_tensor=m_nr_filled_tensor.to("cuda");
-
-
     clear();
     update_impl();
-
-
 }
 
 void HashTable::clear(){

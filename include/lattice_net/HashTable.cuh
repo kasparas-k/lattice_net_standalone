@@ -20,7 +20,6 @@ public:
     torch::Tensor m_nr_filled_tensor; // 1x1 tensor of int storing the nr of filled cells of the keys and values tensor
     int m_nr_filled; //instead of reading all the time the nr_filled_tensor which requires syncronizing with the GPU,  we read this when the value is not dirty
     bool m_nr_filled_is_dirty;
-    // int m_pos_dim;
     
     //pointer to implementation 
     std::shared_ptr<HashTableGPU> m_impl;

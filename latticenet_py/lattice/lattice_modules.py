@@ -7,7 +7,7 @@ from torch.nn import functional as F
 import torch_scatter
 
 from latticenet_py.backend import Lattice
-from latticenet_py.lattice.lattice_funcs import *
+import latticenet_py.lattice.lattice_funcs as lfun
 import latticenet_py.utils.utils as utils
 from latticenet_py.utils.utils import LinearWN
 
@@ -19,7 +19,7 @@ class DropoutLattice(torch.nn.Module):
 
     def forward(self, lv):
 
-        if (len(lv.shape)) is not 2:
+        if (len(lv.shape)) != 2:
             sys.exit(
                 "the lattice values must be two dimensional, nr_lattice vertices x val_dim.However it is",
                 len(lv.shape),
@@ -40,7 +40,7 @@ class SplatLatticeModule(torch.nn.Module):
         super().__init__()
 
     def forward(self, lattice_py, positions, values):
-        lv, ls_wrap, indices, weights = SplatLattice.apply(
+        lv, ls_wrap, indices, weights = lfun.SplatLattice.apply(
             lattice_py, positions, values
         )
         return lv, ls_wrap.lattice, indices, weights
@@ -52,7 +52,7 @@ class DistributeLatticeModule(torch.nn.Module):
 
     def forward(self, lattice, positions, values, reset_hashmap=True):
         distributed_lattice_wrap, distributed, splatting_indices, splatting_weights = (
-            DistributeLattice.apply(lattice, positions, values, reset_hashmap)
+           lfun.DistributeLattice.apply(lattice, positions, values, reset_hashmap)
         )
         distributed_lattice = distributed_lattice_wrap.lattice
 
@@ -104,7 +104,7 @@ class ExpandLatticeModule(
     def forward(self, lattice_values, lattice_structure, positions):
         lattice_structure.set_values(lattice_values)
 
-        lv, ls_wrap = ExpandLattice.apply(
+        lv, ls_wrap = lfun.ExpandLattice.apply(
             lattice_values,
             lattice_structure,
             positions,
@@ -162,7 +162,7 @@ class ConvLatticeModule(torch.nn.Module):
             with torch.no_grad():
                 self.reset_parameters(filter_extent)
 
-        lv, ls_wrap = ConvIm2RowLattice.apply(
+        lv, ls_wrap = lfun.ConvIm2RowLattice.apply(
             lattice_values, lattice_structure, self.weight, self.dilation
         )
         ls = ls_wrap.lattice
@@ -227,7 +227,7 @@ class ConvLatticeIm2RowModule(torch.nn.Module):
         #     if self.use_bias:
         #     with torch.no_grad():
 
-        lattice_rowified = Im2RowLattice.apply(
+        lattice_rowified = lfun.Im2RowLattice.apply(
             lattice_values,
             lattice_structure,
             filter_extent,
@@ -302,7 +302,7 @@ class CoarsenLatticeModule(torch.nn.Module):
         #     if self.use_bias:
         #     with torch.no_grad():
 
-        lv, ls_wrap = CoarsenLattice.apply(
+        lv, ls_wrap = lfun.CoarsenLattice.apply(
             lattice_fine_values, lattice_fine_structure, self.weight, coarsened_lattice
         )  # this just does a convolution, we also need batch norm an non linearity
         ls = ls_wrap.lattice
@@ -369,7 +369,7 @@ class FinefyLatticeModule(torch.nn.Module):
         #     if self.use_bias:
         #     with torch.no_grad():
 
-        lv, ls_wrap = FinefyLattice.apply(
+        lv, ls_wrap = lfun.FinefyLattice.apply(
             lattice_coarse_values,
             lattice_coarse_structure,
             lattice_fine_structure,
@@ -399,7 +399,7 @@ class SliceLatticeModule(torch.nn.Module):
     ):
 
         lattice_structure.set_values(lattice_values)
-        return SliceLattice.apply(
+        return lfun.SliceLattice.apply(
             lattice_values,
             lattice_structure,
             positions,
@@ -415,7 +415,7 @@ class GatherLatticeModule(torch.nn.Module):
     def forward(self, lattice_values, lattice_structure, positions):
 
         lattice_structure.set_values(lattice_values)
-        return GatherLattice.apply(lattice_values, lattice_structure, positions)
+        return lfun.GatherLattice.apply(lattice_values, lattice_structure, positions)
 
 
 ConvLatticeIm2RowWNModule = utils.weight_norm_wrapper(
@@ -493,7 +493,7 @@ class SliceFastCUDALatticeModule(torch.nn.Module):
         # last bottleneck
         lv_bottleneck, ls_bottleneck = self.bottleneck(lv_bottleneck, ls_bottleneck)
 
-        sliced_bottleneck_rowified = GatherLattice.apply(
+        sliced_bottleneck_rowified = lfun.GatherLattice.apply(
             lv_bottleneck,
             ls_bottleneck,
             positions,
@@ -556,7 +556,7 @@ class SliceFastCUDALatticeModule(torch.nn.Module):
 
         ls.set_values(lv)
 
-        classes_logits = SliceClassifyLattice.apply(
+        classes_logits = lfun.SliceClassifyLattice.apply(
             lv,
             ls,
             positions,
@@ -580,7 +580,7 @@ class BatchNormLatticeModule(torch.nn.Module):
 
     def forward(self, lattice_values, lattice_py):
 
-        if lattice_values.dim() is not 2:
+        if lattice_values.dim() != 2:
             sys.exit("lattice should be 2 dimensional, nr_vertices x val_full_dim")
 
         lattice_values = self.bn(lattice_values)
@@ -606,7 +606,7 @@ class GroupNormLatticeModule(torch.nn.Module):
 
     def forward(self, lattice_values, lattice_py, do_set_values=True):
 
-        if lattice_values.dim() is not 2:
+        if lattice_values.dim() != 2:
             sys.exit("lattice should be 2 dimensional, nr_vertices x val_dim")
 
         # group norm wants the tensor to be N, C, L  (nr_batches, channels, nr_samples)
@@ -863,37 +863,6 @@ class Gn(torch.nn.Module):
         lv, ls = self.norm(lv, ls)
         ls.set_values(lv)
         return lv, ls
-
-
-class GnReluDepthwiseConv(torch.nn.Module):
-    def __init__(self, nr_filters, dilation, bias, with_dropout):
-        super().__init__()
-        self.nr_filters = nr_filters
-        self.conv = DepthwiseConvLatticeModule(
-            nr_filters=nr_filters, neighbourhood_size=1, dilation=dilation, bias=bias
-        )
-        self.norm = None
-        self.relu = torch.nn.ReLU(inplace=False)
-        self.with_dropout = with_dropout
-        if with_dropout:
-            self.drop = DropoutLattice(0.2)
-
-    def forward(self, lv, ls):
-
-        ls.set_values(lv)
-
-        # similar to densenet and resnet: bn, relu, conv https://arxiv.org/pdf/1603.05027.pdf
-        if self.norm is None:
-            self.norm = GroupNormLatticeModule(lv.shape[1])
-        lv, ls = self.norm(lv, ls)
-        lv = self.relu(lv)
-        if self.with_dropout:
-            lv = self.drop(lv)
-        ls.set_values(lv)
-        lv_1, ls_1 = self.conv(lv, ls)
-        ls_1.set_values(lv_1)
-
-        return lv_1, ls_1
 
 
 class ConvAct(torch.nn.Module):

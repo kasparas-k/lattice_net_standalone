@@ -1,38 +1,49 @@
+from dataclasses import dataclass
 from functools import reduce
 import sys
 
 import torch
 from torch.nn.modules.module import _addindent
 
-from latticenet_py.lattice.lattice_funcs import *
-from latticenet_py.lattice.lattice_modules import *
+import latticenet_py.lattice.lattice_modules as lmod
+
+
+@dataclass
+class ModelParams:
+    nr_classes: int
+    nr_downsamples: int
+    nr_blocks_down_stage: list[int]
+    nr_blocks_bottleneck: int
+    nr_blocks_up_stage: list[int]
+    nr_levels_down_with_normal_resnet: int
+    nr_levels_up_with_normal_resnet: int
+    compression_factor: float
+    dropout_last_layer: float
+    pointnet_channels_per_layer: list[int]
+    pointnet_start_nr_channels: int
 
 
 class LNN(torch.nn.Module):
-    def __init__(self, nr_classes, model_params):
+    def __init__(self, model_params: ModelParams):
         super().__init__()
-        self.nr_classes = nr_classes
+        self.nr_classes = model_params.nr_classes
 
         # a bit more control
         self.model_params = model_params
-        self.nr_downsamples = model_params['nr_downsamples']
-        self.nr_blocks_down_stage = model_params['nr_blocks_down_stage']
-        self.nr_blocks_bottleneck = model_params['nr_blocks_bottleneck']
-        self.nr_blocks_up_stage = model_params['nr_blocks_up_stage']
-        self.nr_levels_down_with_normal_resnet = model_params[
-            'nr_levels_down_with_normal_resnet'
-        ]
-        self.nr_levels_up_with_normal_resnet = model_params[
-            'nr_levels_up_with_normal_resnet'
-        ]
-        compression_factor = model_params['compression_factor']
-        dropout_last_layer = model_params['dropout_last_layer']
+        self.nr_downsamples = model_params.nr_downsamples
+        self.nr_blocks_down_stage = model_params.nr_blocks_down_stage
+        self.nr_blocks_bottleneck = model_params.nr_blocks_bottleneck
+        self.nr_blocks_up_stage = model_params.nr_blocks_up_stage
+        self.nr_levels_down_with_normal_resnet = model_params.nr_levels_down_with_normal_resnet
+        self.nr_levels_up_with_normal_resnet = model_params.nr_levels_up_with_normal_resnet
+        compression_factor = model_params.compression_factor
+        dropout_last_layer = model_params.dropout_last_layer
+        self.pointnet_channels_per_layer = model_params.pointnet_channels_per_layer
+        self.start_nr_filters = model_params.pointnet_start_nr_channels
 
-        self.distribute = DistributeLatticeModule()
-        self.pointnet_channels_per_layer = model_params['pointnet_channels_per_layer']
-        self.start_nr_filters = model_params['pointnet_start_nr_channels']
+        self.distribute = lmod.DistributeLatticeModule()
         print("pointnt_channels_per_layer is ", self.pointnet_channels_per_layer)
-        self.point_net = PointNetModule(
+        self.point_net = lmod.PointNetModule(
             self.pointnet_channels_per_layer, self.start_nr_filters
         )
 
@@ -60,7 +71,7 @@ class LNN(torch.nn.Module):
                     should_use_dropout = False
                     print("adding down_resnet_block with dropout", should_use_dropout)
                     self.resnet_blocks_per_down_lvl_list[i].append(
-                        ResnetBlock(
+                        lmod.ResnetBlock(
                             cur_channels_count,
                             cur_channels_count,
                             [1, 1],
@@ -74,7 +85,7 @@ class LNN(torch.nn.Module):
                         cur_channels_count,
                     )
                     self.resnet_blocks_per_down_lvl_list[i].append(
-                        BottleneckBlock(
+                        lmod.BottleneckBlock(
                             cur_channels_count,
                             cur_channels_count,
                             [False, False, False],
@@ -89,7 +100,7 @@ class LNN(torch.nn.Module):
                 nr_channels_after_coarsening,
             )
             self.coarsens_list.append(
-                CoarsenAct(cur_channels_count, nr_channels_after_coarsening)
+                lmod.CoarsenAct(cur_channels_count, nr_channels_after_coarsening)
             )  # is still the best one because it can easily learn the versions of Avg and Blur. and the Max version is the worse for some reason
             cur_channels_count = nr_channels_after_coarsening
             corsenings_channel_counts.append(cur_channels_count)
@@ -103,7 +114,7 @@ class LNN(torch.nn.Module):
                 "adding bottleneck_resnet_block with nr of filters", cur_channels_count
             )
             self.resnet_blocks_bottleneck.append(
-                BottleneckBlock(
+                lmod.BottleneckBlock(
                     cur_channels_count, cur_channels_count, [False, False, False]
                 )
             )
@@ -127,7 +138,7 @@ class LNN(torch.nn.Module):
             print(
                 "adding bnReluFinefy which outputs nr of channels ", nr_chanels_finefy
             )
-            self.finefy_list.append(GnReluFinefy(cur_channels_count, nr_chanels_finefy))
+            self.finefy_list.append(lmod.GnReluFinefy(cur_channels_count, nr_chanels_finefy))
 
             # after finefy we do a concat with the skip connection so the number of channels doubles
             if self.do_concat_for_vertical_connection:
@@ -145,7 +156,7 @@ class LNN(torch.nn.Module):
                         "adding up_resnet_block with nr of filters", cur_channels_count
                     )
                     self.resnet_blocks_per_up_lvl_list[i].append(
-                        ResnetBlock(
+                        lmod.ResnetBlock(
                             cur_channels_count,
                             cur_channels_count,
                             [1, 1],
@@ -159,16 +170,16 @@ class LNN(torch.nn.Module):
                         cur_channels_count,
                     )
                     self.resnet_blocks_per_up_lvl_list[i].append(
-                        BottleneckBlock(
+                        lmod.BottleneckBlock(
                             cur_channels_count,
                             cur_channels_count,
                             [False, False, is_last_conv],
                         )
                     )
 
-        self.slice_fast_cuda = SliceFastCUDALatticeModule(
+        self.slice_fast_cuda = lmod.SliceFastCUDALatticeModule(
             in_channels=cur_channels_count,
-            nr_classes=nr_classes,
+            nr_classes=self.nr_classes,
             dropout_prob=dropout_last_layer,
             experiment=experiment,
         )

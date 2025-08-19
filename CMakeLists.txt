@@ -52,7 +52,13 @@ set(LIBS
     ${TORCH_PYTHON_LIBRARY}
     ${OpenCV_LIBS}
     CUDA::cuda_driver
-    #Python::Python
+)
+
+set_target_properties(latticenet_cu PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/latticenet_py/backend/
+)
+set_target_properties(latticenet PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/latticenet_py/backend/
 )
 
 target_link_libraries(latticenet_cu PUBLIC ${LIBS} )

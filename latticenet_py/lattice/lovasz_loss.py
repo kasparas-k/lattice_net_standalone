@@ -21,7 +21,7 @@ def lovasz_grad(gt_sorted):
 
 class LovaszSoftmax(nn.Module):
     def __init__(self, ignore_index, reduction='mean'):
-        super(LovaszSoftmax, self).__init__()
+        super().__init__()
         self.reduction = reduction
         self.ignore_index = ignore_index
 
@@ -29,11 +29,7 @@ class LovaszSoftmax(nn.Module):
         assert input.dim() in [2]
         num_class = input.size(1)
         # if input.dim() == 4:
-        # input = input.permute(0, 2, 3, 1).contiguous()
         input_flatten = input.view(-1, num_class)
-        # elif input.dim() == 5:
-        #     input = input.permute(0, 2, 3, 4, 1).contiguous()
-        #     input_flatten = input.view(-1, num_class)
         target_flatten = target.view(-1)
         return input_flatten, target_flatten
 

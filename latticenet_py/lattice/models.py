@@ -80,7 +80,6 @@ class LNN(torch.nn.Module):
                             [False, False, False],
                         )
                     )
-                    # self.resnet_blocks_per_down_lvl_list[i].append( ResnetBlock2(cur_channels_count, cur_channels_count,  [1,1], [True,True], False)  )
             skip_connection_channel_counts.append(cur_channels_count)
             nr_channels_after_coarsening = int(
                 cur_channels_count * 2 * compression_factor
@@ -89,7 +88,6 @@ class LNN(torch.nn.Module):
                 "adding bnReluCorsen which outputs nr of channels ",
                 nr_channels_after_coarsening,
             )
-            # self.coarsens_list.append( GnReluCoarsen(cur_channels_count, nr_channels_after_coarsening)) #is still the best one because it can easily learn the versions of Avg and Blur. and the Max version is the worse for some reason
             self.coarsens_list.append(
                 CoarsenAct(cur_channels_count, nr_channels_after_coarsening)
             )  # is still the best one because it can easily learn the versions of Avg and Blur. and the Max version is the worse for some reason
@@ -109,7 +107,6 @@ class LNN(torch.nn.Module):
                     cur_channels_count, cur_channels_count, [False, False, False]
                 )
             )
-            # self.resnet_blocks_bottleneck.append( ResnetBlock2(cur_channels_count, cur_channels_count,  [1,1], [True,True], False)  )
 
         self.do_concat_for_vertical_connection = True
         #######################
@@ -131,7 +128,6 @@ class LNN(torch.nn.Module):
                 "adding bnReluFinefy which outputs nr of channels ", nr_chanels_finefy
             )
             self.finefy_list.append(GnReluFinefy(cur_channels_count, nr_chanels_finefy))
-            # self.finefy_list.append( FinefyAct(cur_channels_count, nr_chanels_finefy ))
 
             # after finefy we do a concat with the skip connection so the number of channels doubles
             if self.do_concat_for_vertical_connection:
@@ -157,7 +153,6 @@ class LNN(torch.nn.Module):
                             False,
                         )
                     )
-                    # self.resnet_blocks_per_up_lvl_list[i].append( ResnetBlock2(cur_channels_count, cur_channels_count,  [1,1], [True,True], False) )
                 else:
                     print(
                         "adding up_bottleneck_block with nr of filters",
@@ -170,7 +165,6 @@ class LNN(torch.nn.Module):
                             [False, False, is_last_conv],
                         )
                     )
-                    # self.resnet_blocks_per_up_lvl_list[i].append( ResnetBlock2(cur_channels_count, cur_channels_count,  [1,1], [True,True], False) )
 
         self.slice_fast_cuda = SliceFastCUDALatticeModule(
             in_channels=cur_channels_count,
@@ -178,8 +172,6 @@ class LNN(torch.nn.Module):
             dropout_prob=dropout_last_layer,
             experiment=experiment,
         )
-        # self.slice=SliceLatticeModule()
-        # self.classify=Conv1x1(out_channels=nr_classes, bias=True)
 
         self.logsoftmax = torch.nn.LogSoftmax(dim=1)
 
@@ -192,12 +184,10 @@ class LNN(torch.nn.Module):
 
         fine_structures_list = []
         fine_values_list = []
-        # TIME_START("down_path")
         for i in range(self.nr_downsamples):
 
             # resnet blocks
             for j in range(self.nr_blocks_down_stage[i]):
-                # print("start downsample stage ", i , " resnet block ", j, "lv has shape", lv.shape, " ls has val dim", ls.val_dim() )
                 lv, ls = self.resnet_blocks_per_down_lvl_list[i][j](lv, ls)
 
             # saving them for when we do finefy so we can concat them there
@@ -205,26 +195,19 @@ class LNN(torch.nn.Module):
             fine_values_list.append(lv)
 
             # now we do a downsample
-            # print("start coarsen stage ", i, "lv has shape", lv.shape, "ls has val_dim", ls.val_dim() )
             lv, ls = self.coarsens_list[i](lv, ls)
-            # print( "finished coarsen stage ", i, "lv has shape", lv.shape, "ls has val_dim", ls.val_dim() )
-
-        # TIME_END("down_path")
 
         # #bottleneck
         for j in range(self.nr_blocks_bottleneck):
-            # print("bottleneck stage", j,  "lv has shape", lv.shape, "ls has val_dim", ls.val_dim()  )
             lv, ls = self.resnet_blocks_bottleneck[j](lv, ls)
 
         # upsample (we start from the bottom of the U-net, so the upsampling that is closest to the blottlenck)
-        # TIME_START("up_path")
         for i in range(self.nr_downsamples):
 
             fine_values = fine_values_list.pop()
             fine_structure = fine_structures_list.pop()
 
             # finefy
-            # print("start finefy stage", i,  "lv has shape", lv.shape, "ls has val_dim ", ls.val_dim(),  "fine strcture has val dim ", fine_structure.val_dim() )
             lv, ls = self.finefy_list[i](lv, ls, fine_structure)
 
             # concat or adding for the vertical connection
@@ -235,18 +218,13 @@ class LNN(torch.nn.Module):
 
             # resnet blocks
             for j in range(self.nr_blocks_up_stage[i]):
-                # print("start resnet block in upstage", i, "lv has shape", lv.shape, "ls has val dim" , ls.val_dim() )
                 lv, ls = self.resnet_blocks_per_up_lvl_list[i][j](lv, ls)
-        # TIME_END("up_path")
 
         sv = self.slice_fast_cuda(lv, ls, positions, indices, weights)
-        # sv =self.slice(lv, ls, positions, indices, weights)
-        # sv=self.classify(sv)
 
         logsoftmax = self.logsoftmax(sv)
 
         return logsoftmax, sv
-        # return logsoftmax, s_final
 
     # like in here https://github.com/drethage/fully-convolutional-point-network/blob/60b36e76c3f0cc0512216e9a54ef869dbc8067ac/data.py
     # also the Enet paper seems to have a similar weighting
@@ -256,13 +234,6 @@ class LNN(torch.nn.Module):
         class_counts: np.array
         Returns: list[float]
         """
-        # class_counts /= np.sum(class_counts[0:self._empty_class_id])
-        # class_weights = (1 / np.log(1.2 + class_counts))
-
-        # class_weights[self._empty_class_id] = self._special_weights['empty']
-        # class_weights[self._masked_class_id] = self._special_weights['masked']
-
-        # return class_weights.tolist()
 
         # doing it my way but inspired by their approach of using the logarithm
         class_frequencies_tensor = (
@@ -307,23 +278,14 @@ class LNN(torch.nn.Module):
                 else:
                     main_str += '\n  ' + '\n  '.join(lines) + '\n'
 
-            # main_str += ')'
-            # if file is sys.stderr:
-            #     main_str += ', \033[92m{:,}\033[0m params'.format(total_params)
-            # else:
-            #     main_str += ', {:,} params'.format(total_params)
-            # return main_str, total_params
-
             main_str += ')'
             if file is sys.stderr:
                 main_str += ', \033[92m{:,}\033[0m params'.format(total_params)
                 for name, p in model._parameters.items():
                     if hasattr(p, 'grad'):
                         if p.grad == None:
-                            # print("p has no grad", name)
                             main_str += "p no grad"
                         else:
-                            # print("p has gradnorm ", name ,p.grad.norm() )
                             main_str += (
                                 "\n" + name + " p has grad norm " + str(p.grad.norm())
                             )

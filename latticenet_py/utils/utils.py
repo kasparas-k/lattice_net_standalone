@@ -6,9 +6,7 @@ import numpy as np
 import torch
 import torch as th
 from torch import Tensor
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.functional as thf
 from torch.nn.modules.utils import _pair
 from torch.nn.utils.weight_norm import WeightNorm, remove_weight_norm
 
@@ -24,11 +22,11 @@ def check_args_shadowing(name, method, arg_names):
 
 
 # For backward compatibility.
-class TensorMappingHook(object):
+class TensorMappingHook:
     def __init__(
         self,
         name_mapping: list[tuple[str, str]],
-        expected_shape: Optional[Dict[str, list[int]]] = None,
+        expected_shape: Optional[dict[str, list[int]]] = None,
     ):
         """This hook is expected to be used with "_register_load_state_dict_pre_hook" to
         modify names and tensor shapes in the loaded state dictionary.
@@ -166,13 +164,13 @@ class Conv1dUB(th.nn.Conv1d):
     def _conv_forward(self, input: Tensor, weight: Tensor, bias: Optional[Tensor]):
         # Copied from pt1.8 source code.
         if self.padding_mode != 'zeros':
-            input = thf.pad(
+            input = F.pad(
                 input, self._reversed_padding_repeated_twice, mode=self.padding_mode
             )
-            return thf.conv1d(
+            return F.conv1d(
                 input, weight, bias, self.stride, _pair(0), self.dilation, self.groups
             )
-        return thf.conv1d(
+        return F.conv1d(
             input, weight, bias, self.stride, self.padding, self.dilation, self.groups
         )
 
@@ -200,13 +198,13 @@ class Conv2dUB(th.nn.Conv2d):
     def _conv_forward(self, input: Tensor, weight: Tensor, bias: Optional[Tensor]):
         # Copied from pt1.8 source code.
         if self.padding_mode != 'zeros':
-            input = thf.pad(
+            input = F.pad(
                 input, self._reversed_padding_repeated_twice, mode=self.padding_mode
             )
-            return thf.conv2d(
+            return F.conv2d(
                 input, weight, bias, self.stride, _pair(0), self.dilation, self.groups
             )
-        return thf.conv2d(
+        return F.conv2d(
             input, weight, bias, self.stride, self.padding, self.dilation, self.groups
         )
 
@@ -242,7 +240,7 @@ class ConvTranspose1dUB(th.nn.ConvTranspose1d):
             self.dilation,
         )
 
-        output = thf.conv_transpose1d(
+        output = F.conv_transpose1d(
             input,
             self.weight,
             None,
@@ -286,7 +284,7 @@ class ConvTranspose2dUB(th.nn.ConvTranspose2d):
             self.dilation,
         )
 
-        output = thf.conv_transpose2d(
+        output = F.conv_transpose2d(
             input,
             self.weight,
             None,
@@ -338,7 +336,7 @@ class GatedConv2dWNSwish(torch.nn.Module):
         return output
 
 
-class InterpolateHook(object):
+class InterpolateHook:
     def __init__(self, size=None, scale_factor=None, mode="bilinear"):
         """An object storing options for interpolate function"""
         self.size = size
@@ -347,7 +345,7 @@ class InterpolateHook(object):
 
     def __call__(self, module, x):
         assert len(x) == 1, "Module should take only one input for the forward method."
-        return thf.interpolate(
+        return F.interpolate(
             x[0],
             size=self.size,
             scale_factor=self.scale_factor,
@@ -398,7 +396,7 @@ class Upsample(th.nn.Module):
         self.kwargs = kwargs
 
     def forward(self, x):
-        return thf.interpolate(x, *self.args, **self.kwargs)
+        return F.interpolate(x, *self.args, **self.kwargs)
 
 
 def leaky_relu_init(m, alpha=0.2):
@@ -450,14 +448,10 @@ def leaky_relu_init(m, alpha=0.2):
     # LATTICE THINGS
     elif isinstance(m, ConvLatticeIm2RowModule):
         print("init ConvLatticeIm2RowModule")
-        # print("conv lattice weight is ", m.weight.shape)
         n1 = m.in_channels
         n2 = m.out_channels
         filter_extent = m.filter_extent
-        # print("filter_extent", filter_extent)
-        # print("n1", n1)
         std = gain * np.sqrt(2.0 / ((n1 + n2) * filter_extent))
-        # return
     elif isinstance(m, CoarsenLatticeModule):
         print("init CoarsenLatticeModule")
         n1 = m.in_channels
@@ -473,7 +467,6 @@ def leaky_relu_init(m, alpha=0.2):
         filter_extent = filter_extent // 8
         # since coarsen usually hits empty space, the effective extent of it is actually smaller
         std = gain * np.sqrt(2.0 / ((n1 + n2) * filter_extent))
-        # std = gain / np.sqrt( ((n1 ) * filter_extent) *1.0 )
     else:
         return
 
@@ -494,8 +487,6 @@ def leaky_relu_init(m, alpha=0.2):
     if is_wnw:
         m.unfuse()
 
-    # m.weights_initialized=True
-
 
 def swish_init(m, is_linear, scale=1):
 
@@ -506,95 +497,56 @@ def swish_init(m, is_linear, scale=1):
         FinefyLatticeModule,
     )
 
-    # is_wnw = is_weight_norm_wrapped(m)
-    # if is_wnw:
-    #     m.fuse()
-    # if hasattr(m, 'weight'):
-    #     torch.nn.init.kaiming_normal_(m.weight)
-    # if hasattr(m, 'bias'):
-    #     if m.bias is not None:
-    #         m.bias.data.zero_()
-    # if is_wnw:
-    #     m.unfuse()
-    # return
     # nromally relu has a gain of sqrt(2)
-    # however swish has a gain of sqrt(2.952) as per the paper https://arxiv.org/pdf/1805.08266.pdf
+    # however SiLU has a gain of sqrt(2.952) as per the paper https://arxiv.org/pdf/1805.08266.pdf
     gain = np.sqrt(2.952)
-    # gain=np.sqrt(3.2)
-    # gain=np.sqrt(3)
-    # gain=np.sqrt(2)
+
     if is_linear:
         gain = 1
-        # gain = np.sqrt(2.0 / (1.0 + 1 ** 2))
-        # print("is lienar")
 
     if isinstance(m, th.nn.Conv1d):
         ksize = m.kernel_size[0]
         n1 = m.in_channels
         n2 = m.out_channels
 
-        # std = gain * np.sqrt(2.0 / ((n1 + n2) * ksize))
         std = gain / np.sqrt(((n1) * ksize))
-        # std = gain / np.sqrt( ((n2 ) * ksize))
     elif isinstance(m, th.nn.Conv2d):
         ksize = m.kernel_size[0] * m.kernel_size[1]
         n1 = m.in_channels
         n2 = m.out_channels
 
-        # std = gain * np.sqrt(2.0 / ((n1 + n2) * ksize))
         std = gain / np.sqrt(((n1) * ksize))
-        # std = gain / np.sqrt( ((n2 ) * ksize))
-    # elif isinstance(m, PacConv2d):
-    #     print("pac init")
-    #     ksize = m.kernel_size[0] * m.kernel_size[1]
-    #     n1 = m.in_channels
-    #     n2 = m.out_channels
 
-    #     # std = gain * np.sqrt(2.0 / ((n1 + n2) * ksize))
-    #     std = gain / np.sqrt( ((n1 ) * ksize))
-    #     # std = gain / np.sqrt( ((n2 ) * ksize))
     elif isinstance(m, th.nn.ConvTranspose1d):
         ksize = m.kernel_size[0] // 2
         n1 = m.in_channels
         n2 = m.out_channels
 
-        # std = gain * np.sqrt(2.0 / ((n1 + n2) * ksize))
         std = gain / np.sqrt(((n1) * ksize))
-        # std = gain / np.sqrt( ((n2 ) * ksize))
     elif isinstance(m, th.nn.ConvTranspose2d):
         ksize = m.kernel_size[0] * m.kernel_size[1] // 4
         n1 = m.in_channels
         n2 = m.out_channels
 
-        # std = gain * np.sqrt(2.0 / ((n1 + n2) * ksize))
         std = gain / np.sqrt(((n1) * ksize))
-        # std = gain / np.sqrt( ((n2) * ksize))
     elif isinstance(m, th.nn.ConvTranspose3d):
         ksize = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] // 8
         n1 = m.in_channels
         n2 = m.out_channels
 
-        # std = gain * np.sqrt(2.0 / ((n1 + n2) * ksize))
         std = gain / np.sqrt(((n1) * ksize))
-        # std = gain / np.sqrt( ((n2 ) * ksize))
     elif isinstance(m, th.nn.Linear):
         n1 = m.in_features
         n2 = m.out_features
 
-        # std = gain * np.sqrt(2.0 / (n1 + n2))
         std = gain / np.sqrt((n1))
-        # std = gain / np.sqrt( (n2 ))
     # LATTICE THINGS
     elif isinstance(m, ConvLatticeIm2RowModule):
         print("init ConvLatticeIm2RowModule")
-        # print("conv lattice weight is ", m.weight.shape)
         n1 = m.in_channels
         n2 = m.out_channels
         filter_extent = m.filter_extent
-        # print("filter_extent", filter_extent)
-        # print("n1", n1)
         std = gain / np.sqrt(((n1) * filter_extent))
-        # return
     elif isinstance(m, CoarsenLatticeModule):
         print("init CoarsenLatticeModule")
         n1 = m.in_channels
@@ -608,23 +560,16 @@ def swish_init(m, is_linear, scale=1):
         filter_extent = m.filter_extent
         # since coarsen usually hits empty space, the effective extent of it is actually smaller
         std = gain / np.sqrt(((n1) * filter_extent) * 0.5)
-        # std = gain / np.sqrt( ((n1 ) * filter_extent) *1.0 )
     else:
         return
-
-    # print("applying init to a ",m)
 
     is_wnw = is_weight_norm_wrapped(m)
     if is_wnw:
         m.fuse()
 
-    # m.weight.data.uniform_(-std * np.sqrt(3.0), std * np.sqrt(3.0))
-    # print("scale is ", scale)
-    # print("normal is ", std*scale)
     m.weight.data.normal_(0, std * scale)
     if m.bias is not None:
         m.bias.data.zero_()
-        # m.bias.data.normal_(0, np.sqrt(0.04))
 
     if isinstance(m, th.nn.ConvTranspose2d):
         # hardcoded for stride=2 for now
@@ -635,18 +580,6 @@ def swish_init(m, is_linear, scale=1):
     if is_wnw:
         m.unfuse()
 
-    # m.weights_initialized=True
-
-
-# init the positional encoding layers, should be done after the swish_init
-def pe_layers_init(m):
-
-    if isinstance(m, LearnedPE):
-        m.init_weights()
-        print("init LearnedPE")
-    else:
-        return
-
 
 def apply_weight_init_fn(m, fn, is_linear=False, scale=1):
 
@@ -654,19 +587,14 @@ def apply_weight_init_fn(m, fn, is_linear=False, scale=1):
     if not hasattr(
         m, "weights_initialized"
     ):  # if we don't have this then we need to intiialzie
-        # fn(m, is_linear, scale)
         should_initialize_weight = True
     elif m.weights_initialized == False:  # if we have it but it's set to false
-        # fn(m, is_linear, scale)
         should_initialize_weight = True
     else:
-        # print("skipping weight init on ", m)
         should_initialize_weight = False
 
     if should_initialize_weight:
-        # fn(m, is_linear, scale)
         fn(m, scale)
-        # m.weights_initialized=True
         for module in m.children():
             apply_weight_init_fn(module, fn, is_linear, scale)
 
@@ -677,13 +605,10 @@ def apply_weight_init_fn_glorot(m, fn):
     if not hasattr(
         m, "weights_initialized"
     ):  # if we don't have this then we need to intiialzie
-        # fn(m, is_linear, scale)
         should_initialize_weight = True
     elif m.weights_initialized == False:  # if we have it but it's set to false
-        # fn(m, is_linear, scale)
         should_initialize_weight = True
     else:
-        # print("skipping weight init on ", m)
         should_initialize_weight = False
 
     if should_initialize_weight:

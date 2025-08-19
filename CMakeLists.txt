@@ -11,7 +11,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(pybind11 REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(CUDA REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenCV REQUIRED)
 
@@ -21,6 +20,8 @@ execute_process( #do it like this https://github.com/facebookresearch/hanabi_SAD
 )
 list(APPEND CMAKE_PREFIX_PATH ${TorchPath})
 find_package(Torch REQUIRED)
+
+find_library(TORCH_PYTHON_LIBRARY torch_python PATH "${TORCH_INSTALL_PREFIX}/lib")
 
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
@@ -37,7 +38,7 @@ pybind11_add_module(latticenet ${PROJECT_SOURCE_DIR}/src/PyBridge.cxx )
 configure_file(${PROJECT_SOURCE_DIR}/include/lattice_net/jitify_helper/jitify_options.hpp.in ${PROJECT_SOURCE_DIR}/include/lattice_net/jitify_helper/jitify_options.hpp)
 install(FILES "${PROJECT_SOURCE_DIR}/include/lattice_net/jitify_helper/jitify_options.hpp" DESTINATION ${PROJECT_SOURCE_DIR}/include/lattice_net/jitify_helper/)
 
-cuda_add_library(latticenet_cu  SHARED
+add_library(latticenet_cu  SHARED
     ${CMAKE_SOURCE_DIR}/src/Lattice.cu
     ${CMAKE_SOURCE_DIR}/src/HashTable.cu  
     # ${CMAKE_SOURCE_DIR}/src/ModelParams.cxx
@@ -46,16 +47,16 @@ cuda_add_library(latticenet_cu  SHARED
 )
 
 set(LIBS
-    pybind11::module
     ${LIBS}
-    ${CUDAToolkit_LIBRARIES}
     ${TORCH_LIBRARIES}
+    ${TORCH_PYTHON_LIBRARY}
     ${OpenCV_LIBS}
     CUDA::cuda_driver
+    #Python::Python
 )
 
-target_link_libraries(latticenet_cu ${LIBS} )
-target_link_libraries(latticenet PRIVATE latticenet_cu )
+target_link_libraries(latticenet_cu PUBLIC ${LIBS} )
+target_link_libraries(latticenet PRIVATE latticenet_cu pybind11::module)
 
 # Hardcodes path to this repository into some of the code
 target_compile_definitions(latticenet_cu PRIVATE PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
